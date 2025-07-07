@@ -1,168 +1,173 @@
+import { useState, FC, FormEvent } from "react";
 
-// src/components/auth/LoginForm.tsx
-import React, { useState } from 'react';
 import {
-    TextField,
-    Button,
-    Box,
-    Typography,
-    Paper,
-    Link,
-    CircularProgress,
-    Alert,
-    InputAdornment,
-    IconButton,
-    styled,
-} from '@mui/material';
+  TextField,
+  Button,
+  Box,
+  Typography,
+  Link,
+  InputAdornment,
+  IconButton,
+  Alert,
+  FormControlLabel,
+  Checkbox,
+} from "@mui/material";
 import {
-    Visibility as VisibilityIcon,
-    VisibilityOff as VisibilityOffIcon,
-    Login as LoginIcon,
-} from '@mui/icons-material';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-
-const FormContainer = styled(Paper)(({ theme }) => ({
-    padding: theme.spacing(4),
-    maxWidth: 400,
-    width: '100%',
-    borderRadius: 16,
-    boxShadow: theme.shadows[3],
-}));
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+  Login as LoginIcon,
+} from "@mui/icons-material";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import withLoading from "../../hoc/withLoading";
 
 interface LoginFormProps {
-    redirectTo: string | null;
+  setLoading?: (loading: boolean) => void;
 }
 
-const LoginForm: React.FC<LoginFormProps> = ({ redirectTo }) => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
-    const { login, isLoading, error, clearError } = useAuth();
-    const navigate = useNavigate();
+const LoginForm: FC<LoginFormProps> = ({ setLoading }) => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, isLoading, error, clearError } = useAuth();
+  const [rememberMe, setRememberMe] = useState(false);
+  const navigate = useNavigate();
 
-    const handleLogin = async (event: React.FormEvent) => {
-        event.preventDefault();
-        clearError();
-        try {
-            await login({ username, password });
+  const handleLogin = async (event: FormEvent) => {
+    event.preventDefault();
+    clearError();
+    setLoading?.(true);
 
-            // Determine where to redirect
-            let destination = '/dashboard'; // default
 
-            if (redirectTo && redirectTo !== 'null') {
-                try {
-                    destination = decodeURIComponent(redirectTo);
-                } catch (e) {
-                    console.warn('Failed to decode redirect URL:', redirectTo);
-                    destination = '/dashboard';
-                }
-            }
+    try {
+      await login({ username, password });
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Login failed:", err);
+    } finally {
+      setLoading?.(false);
+    }
+  };
 
-            navigate(destination, { replace: true });
-        } catch (err) {
-            console.error('Login failed:', err);
-        }
-    };
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
-    const handleTogglePasswordVisibility = () => {
-        setShowPassword(!showPassword);
-    };
+  return (
+    // <FormContainer elevation={3}>
+      <Box
+        component="form"
+        onSubmit={handleLogin}
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 3,
+        }}
+      >
+        <Box sx={{ textAlign: "center", mb: 2 }}>
+          <Typography
+            variant="h5"
+            component="h1"
+            fontWeight="bold"
+            gutterBottom
+          >
+            Welcome Back!
+          </Typography>
+          {/* <Typography variant="body2" color="text.secondary">
+            Sign in to access WebGIS Viewer V2
+          </Typography> */}
+        </Box>
 
-    return (
-        <FormContainer elevation={3}>
-            <Box
-                component="form"
-                onSubmit={handleLogin}
-                sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 3,
-                }}
-            >
-                <Box sx={{ textAlign: 'center', mb: 2 }}>
-                    <Typography variant="h4" component="h1" gutterBottom>
-                        Welcome Back
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Sign in to access WebGIS Viewer V2
-                    </Typography>
-                </Box>
+        <TextField
+          label="Username"
+          variant="outlined"
+          fullWidth
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+          autoFocus
+          InputProps={{
+            autoComplete: "username",
+          }}
+        />
 
-                {error && (
-                    <Alert severity="error" onClose={clearError}>
-                        {error}
-                    </Alert>
-                )}
-
-                <TextField
-                    label="Username"
-                    variant="outlined"
-                    fullWidth
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                    autoFocus
-                    InputProps={{
-                        autoComplete: 'username',
-                    }}
-                />
-
-                <TextField
-                    label="Password"
-                    variant="outlined"
-                    type={showPassword ? 'text' : 'password'}
-                    fullWidth
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    InputProps={{
-                        autoComplete: 'current-password',
-                        endAdornment: (
-                            <InputAdornment position="end">
-                                <IconButton
-                                    aria-label="toggle password visibility"
-                                    onClick={handleTogglePasswordVisibility}
-                                    edge="end"
-                                >
-                                    {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                </IconButton>
-                            </InputAdornment>
-                        ),
-                    }}
-                />
-
-                <Box
-                    sx={{
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                    }}
+        <TextField
+          label="Password"
+          variant="outlined"
+          type={showPassword ? "text" : "password"}
+          fullWidth
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          InputProps={{
+            autoComplete: "current-password",
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="toggle password visibility"
+                  onClick={handleTogglePasswordVisibility}
+                  edge="end"
                 >
-                    <Link
-                        component={RouterLink}
-                        to="/forgot-password"
-                        variant="body2"
-                        underline="hover"
-                    >
-                        Forgot password?
-                    </Link>
-                </Box>
+                  {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
 
-                <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    size="large"
-                    fullWidth
-                    disabled={isLoading}
-                    startIcon={isLoading ? <CircularProgress size={20} /> : <LoginIcon />}
-                >
-                    {isLoading ? 'Signing In...' : 'Sign In'}
-                </Button>
-            </Box>
-        </FormContainer>
-    );
+        {error && (
+          <Alert severity="error" onClose={clearError}>
+            Oops! The Username or Password you entered is incorrect. Please try
+            again.
+          </Alert>
+        )}
+
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              color="primary"
+            />
+          }
+          label="Remember me"
+        />
+
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          size="large"
+          fullWidth
+          disabled={isLoading || !username || !password}
+          startIcon={<LoginIcon />}
+        >
+          Sign In
+        </Button>
+
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            mt: 1,
+            fontSize: "0.875rem",
+          }}
+        >
+          <Link
+            component={RouterLink}
+            to="/forgot-password"
+            variant="body2"
+            underline="hover"
+          >
+            Forgot password?
+          </Link>
+          <Link component={RouterLink} to="/register" underline="hover">
+          Create an account
+        </Link>
+        </Box>
+      </Box>
+    // </FormContainer>
+  );
 };
 
-export default LoginForm;
+export default withLoading(LoginForm);
