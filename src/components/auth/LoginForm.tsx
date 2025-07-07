@@ -17,7 +17,7 @@ import {
   VisibilityOff as VisibilityOffIcon,
   Login as LoginIcon,
 } from "@mui/icons-material";
-import { useNavigate, Link as RouterLink } from "react-router-dom";
+import { useNavigate, Link as RouterLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import withLoading from "../../hoc/withLoading";
 
@@ -32,16 +32,28 @@ const LoginForm: FC<LoginFormProps> = ({ setLoading }) => {
   const { login, isLoading, error, clearError } = useAuth();
   const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
     clearError();
     setLoading?.(true);
 
-
     try {
       await login({ username, password });
-      navigate("/dashboard");
+      
+      // Check if there's a redirect URL from the query parameters
+      const searchParams = new URLSearchParams(location.search);
+      const redirectUrl = searchParams.get('redirect');
+      
+      if (redirectUrl) {
+        // Decode the URL and navigate to it
+        const decodedUrl = decodeURIComponent(redirectUrl);
+        navigate(decodedUrl);
+      } else {
+        // Default redirect to dashboard
+        navigate("/dashboard");
+      }
     } catch (err) {
       console.error("Login failed:", err);
     } finally {
