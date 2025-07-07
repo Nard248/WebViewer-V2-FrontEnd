@@ -1,38 +1,117 @@
-// src/pages/clients/ClientsPage.tsx
-import React from 'react';
-import {
-    Box,
-    Typography,
-    Paper,
-    Button,
-    Alert,
-} from '@mui/material';
+import { FC, useEffect, useState } from 'react';
+import { Box, Button, Typography } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
 
-const ClientsPage: React.FC = () => {
-    const navigate = useNavigate();
+import { getClients, deleteClient, updateClient, createClient } from '../../services/clientService';
+import ClientsTable from './ClientsTable';
+import DeleteClientDialog from './DeleteClientDialog';
+import ClientUpsertDialog from './ClientUpsertDialog';
+import { Client, ClientCreate, ClientUpdate } from '../../types';
+
+const ClientsPage: FC = () => {
+    const [clients, setClients] = useState<Client[]>([]);
+    const [sortConfig, setSortConfig] = useState<{ key: keyof Client; direction: 'asc' | 'desc' } | null>(null);
+
+    // Delete state
+    const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+    const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+
+    // Edit state
+    const [openEditDialog, setOpenEditDialog] = useState(false);
+    const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
+
+    const [openCreateDialog, setOpenCreateDialog] = useState(false);
+
+    useEffect(() => {
+        getClients()
+            .then((res) => setClients(res.results))
+            .catch((err) => console.error('Error fetching clients:', err));
+    }, []);
+
+    const handleSort = (key: keyof Client) => {
+        setSortConfig((prev) =>
+            prev?.key === key
+                ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+                : { key, direction: 'asc' }
+        );
+    };
+
+    const sortedClients = [...clients].sort((a, b) => {
+        if (!sortConfig) return 0;
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+        return typeof aVal === 'string' && typeof bVal === 'string'
+            ? sortConfig.direction === 'asc'
+                ? aVal.localeCompare(bVal)
+                : bVal.localeCompare(aVal)
+            : 0;
+    });
 
     const handleCreateClient = () => {
-        navigate('/clients/create');
+        setOpenCreateDialog(true);
     };
+
+
+    const handleDeleteClick = (client: Client) => {
+        setClientToDelete(client);
+        setOpenDeleteDialog(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!clientToDelete) return;
+        try {
+            await deleteClient(clientToDelete.id);
+            setClients((prev) => prev.filter((c) => c.id !== clientToDelete.id));
+        } catch (err) {
+            console.error('Delete failed:', err);
+            alert('Failed to delete client.');
+        } finally {
+            setOpenDeleteDialog(false);
+            setClientToDelete(null);
+        }
+    };
+
+    const handleEditClient = (id: number) => {
+        const client = clients.find((c) => c.id === id);
+        if (client) {
+            setClientToEdit(client);
+            setOpenEditDialog(true);
+        }
+    };
+
+    const handleUpdateClient = async (id: number, data: ClientUpdate) => {
+        try {
+            const updated = await updateClient(id, data);
+            setClients((prev) =>
+                prev.map((c) => (c.id === id ? { ...c, ...updated } : c))
+            );
+        } catch (err) {
+            console.error('Update failed:', err);
+            alert('Failed to update client.');
+        } finally {
+            setOpenEditDialog(false);
+            setClientToEdit(null);
+        }
+    };
+
+    const handleCreateClientSubmit = async (_: number, data: ClientCreate) => {
+    try {
+        const newClient = await createClient(data);
+        setClients((prev) => [...prev, newClient]);
+    } catch (err) {
+        console.error('Create failed:', err);
+        alert('Failed to create client.');
+    } finally {
+        setOpenCreateDialog(false);
+    }
+};
 
     return (
         <Box>
-            <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 3,
-                }}
-            >
-                <Typography variant="h4" component="h1">
-                    Clients
-                </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h4">Clients</Typography>
                 <Button
                     variant="contained"
-                    color="primary"
                     startIcon={<AddIcon />}
                     onClick={handleCreateClient}
                 >
@@ -40,24 +119,34 @@ const ClientsPage: React.FC = () => {
                 </Button>
             </Box>
 
-            <Paper sx={{ p: 3, borderRadius: 2 }}>
-                <Alert severity="info">
-                    The Clients module is under development. This page will allow administrators to manage external organizations
-                    who have access to specific projects in the system.
-                </Alert>
+            <ClientsTable
+                clients={sortedClients}
+                sortConfig={sortConfig}
+                onSort={handleSort}
+                onEdit={handleEditClient}
+                onDelete={handleDeleteClick}
+            />
 
-                <Typography variant="body1" sx={{ mt: 2 }}>
-                    The Clients module will include:
-                </Typography>
+            <DeleteClientDialog
+                open={openDeleteDialog}
+                client={clientToDelete}
+                onCancel={() => setOpenDeleteDialog(false)}
+                onConfirm={handleConfirmDelete}
+            />
 
-                <Box component="ul" sx={{ mt: 1 }}>
-                    <li>Client organization management</li>
-                    <li>User accounts associated with each client</li>
-                    <li>Project sharing and access control</li>
-                    <li>Unique access links for secure sharing</li>
-                    <li>Usage analytics and tracking</li>
-                </Box>
-            </Paper>
+            <ClientUpsertDialog
+                open={openEditDialog}
+                client={clientToEdit}
+                onCancel={() => setOpenEditDialog(false)}
+                onSubmit={handleUpdateClient}
+            />
+
+            <ClientUpsertDialog
+                open={openCreateDialog}
+                client={null}
+                onCancel={() => setOpenCreateDialog(false)}
+                onSubmit={handleCreateClientSubmit}
+            />
         </Box>
     );
 };

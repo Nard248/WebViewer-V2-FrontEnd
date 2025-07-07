@@ -10,6 +10,7 @@ const LoginPage: FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
+
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }

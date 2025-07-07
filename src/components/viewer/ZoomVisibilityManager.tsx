@@ -115,7 +115,7 @@ class ZoomVisibilityManager {
         this.updateZoomHints(currentZoom);
     }
 
-    // Update actual layer visibility based on user + zoom state
+    // ✅ ENHANCED: Update actual layer visibility based on user + zoom state
     private updateLayerVisibility(layerId: number): void {
         const state = this.layerStates.get(layerId);
         if (!state) return;
@@ -129,9 +129,15 @@ class ZoomVisibilityManager {
             const reason = state.userVisible ? 'zoom' : 'user';
             this.notifyLayerToggle(layerId, shouldShow, reason);
 
-            // Also handle buffer layers for antenna towers
+            // ✅ CRITICAL FIX: Handle buffer layers for antenna towers
             if (state.isAntennaTower && this.bufferManager) {
-                this.bufferManager.toggleParentLayerBuffers(layerId, shouldShow, this.map);
+                if (shouldShow) {
+                    // When tower becomes visible, only show buffers that are checked
+                    this.bufferManager.toggleParentLayerBuffers(layerId, true, this.map);
+                } else {
+                    // ✅ NEW: When tower becomes hidden, force hide ALL buffers and uncheck them
+                    this.bufferManager.forceHideBuffersForTower(layerId, this.map);
+                }
             }
 
             console.log(`Layer ${state.layerName}: visibility = ${shouldShow} (user: ${state.userVisible}, zoom: ${state.zoomVisible})`);
@@ -308,19 +314,14 @@ class ZoomVisibilityManager {
 // Export singleton instance
 export const zoomVisibilityManager = new ZoomVisibilityManager();
 
-// Helper functions
-export const isAntennaTowerLayer = (layerName: string): boolean => {
-    return layerName.toLowerCase().includes('antenna locations');
+// Helper function to create zoom hint messages
+export const createZoomHintMessage = (hints: ZoomHint[]): string => {
+    if (hints.length === 0) return '';
+
+    const minZoom = Math.min(...hints.map(h => h.requiredZoom));
+    const layerNames = hints.map(h => h.layerName).join(', ');
+
+    return `Zoom to level ${minZoom}+ to see: ${layerNames}`;
 };
 
-export const getAntennaLayerMinZoom = (): number => {
-    return defaultZoomConfig.minZoomForTowers;
-};
-
-// Custom hook for zoom hints (optional)
-export const createZoomHintMessage = (hint: ZoomHint): string => {
-    const zoomNeeded = hint.requiredZoom - hint.currentZoom;
-    return `Zoom in ${zoomNeeded} more level${zoomNeeded !== 1 ? 's' : ''} to see ${hint.layerName}`;
-};
-
-export { ZoomVisibilityManager, ZoomVisibilityConfig, LayerZoomState, ZoomHint };
+export { ZoomVisibilityManager, ZoomHint };

@@ -1,11 +1,13 @@
 // src/components/viewer/StandaloneLoadingScreen.tsx
 import React from 'react';
-import { Box, Typography, LinearProgress } from '@mui/material';
+import { Box, Typography, LinearProgress, Paper } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import StandaloneHeader from './StandaloneHeader'; // Add this line
 
 interface StandaloneLoadingScreenProps {
     progress: number;
     projectName?: string;
+    statusMessage?: string; // Add this new prop
 }
 
 const LoadingContainer = styled(Box)({
@@ -62,46 +64,54 @@ const LoadingText = styled(Typography)({
     marginTop: '10px',
 });
 
-const StandaloneLoadingScreen: React.FC<StandaloneLoadingScreenProps> = ({ progress, projectName }) => {
+const StandaloneLoadingScreen: React.FC<StandaloneLoadingScreenProps> = ({
+                                                                             progress,
+                                                                             projectName,
+                                                                             statusMessage = 'Loading...' // Default message
+                                                                         }) => {
     return (
-        <LoadingContainer>
-            <LoadingContent>
-                <Spinner>
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="10" stroke="#ddd" strokeWidth="2"/>
-                        <path d="M12 2C6.48 2 2 6.48 2 12" stroke="#4CAF50" strokeWidth="2" strokeLinecap="round"/>
-                        <circle cx="12" cy="2" r="1" fill="#4CAF50"/>
-                        <circle cx="12" cy="2" r="1" fill="#4CAF50">
-                            <animateTransform
-                                attributeName="transform"
-                                type="rotate"
-                                from="0 12 12"
-                                to="360 12 12"
-                                dur="1s"
-                                repeatCount="indefinite"
-                            />
-                        </circle>
-                    </svg>
-                </Spinner>
-
-                <LoadingText>Loading your map...</LoadingText>
-
-                <ProgressBarContainer>
-                    <CustomLinearProgress variant="determinate" value={progress} />
-                    <Box display="flex" justifyContent="center" mt={1}>
-                        <Typography variant="body2" color="textSecondary">
-                            Loading map... {Math.round(progress)}%
-                        </Typography>
-                    </Box>
-                </ProgressBarContainer>
-
-                {projectName && (
-                    <Typography variant="h6" color="textSecondary" mt={2}>
-                        {projectName}
+        <>
+            <StandaloneHeader />
+            <Box
+                display="flex"
+                flexDirection="column"
+                justifyContent="center"
+                alignItems="center"
+                height="calc(100vh - 48px)"
+                marginTop="48px"
+                sx={{ backgroundColor: '#f5f5f5' }}
+            >
+                <Paper elevation={3} sx={{ p: 4, maxWidth: 500, textAlign: 'center' }}>
+                    <Typography variant="h5" gutterBottom>
+                        {projectName ? `Loading ${projectName}` : 'Loading Project'}
                     </Typography>
-                )}
-            </LoadingContent>
-        </LoadingContainer>
+
+                    {/* Add status message */}
+                    <Typography variant="body2" color="textSecondary" sx={{ mb: 3, minHeight: '20px' }}>
+                        {statusMessage}
+                    </Typography>
+
+                    <Box sx={{ width: '100%', mb: 2 }}>
+                        <LinearProgress
+                            variant="determinate"
+                            value={progress}
+                            sx={{ height: 8, borderRadius: 4 }}
+                        />
+                    </Box>
+
+                    <Typography variant="body2" color="textSecondary">
+                        {Math.round(progress)}%
+                    </Typography>
+
+                    {/* Add cache info if available */}
+                    {progress > 30 && (
+                        <Typography variant="caption" display="block" sx={{ mt: 2, color: 'text.secondary' }}>
+                            Data will be cached for 30 minutes for faster access
+                        </Typography>
+                    )}
+                </Paper>
+            </Box>
+        </>
     );
 };
 

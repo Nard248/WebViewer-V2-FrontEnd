@@ -1,3 +1,4 @@
+
 // src/context/AuthContext.tsx
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { User, AuthState } from '../types/auth.types';
@@ -13,23 +14,29 @@ import {
 
 // Define available actions
 type AuthAction =
+    | { type: 'AUTH_CHECK_START' }
     | { type: 'LOGIN_START' }
     | { type: 'LOGIN_SUCCESS'; payload: User }
     | { type: 'LOGIN_FAILURE'; payload: string }
     | { type: 'LOGOUT' }
     | { type: 'CLEAR_ERROR' };
 
-// Initial state
+// Initial state - Start with loading true to prevent premature redirects
 const initialState: AuthState = {
-    isAuthenticated: isAuthenticated(),
+    isAuthenticated: false, // Don't assume authentication until verified
     user: null,
-    isLoading: false,
+    isLoading: true, // Start with loading to check auth status
     error: null,
 };
 
 // Create reducer for state management
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
     switch (action.type) {
+        case 'AUTH_CHECK_START':
+            return {
+                ...state,
+                isLoading: true,
+            };
         case 'LOGIN_START':
             return {
                 ...state,
@@ -87,15 +94,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check if user is already authenticated on mount
     useEffect(() => {
         const checkAuth = async () => {
+            dispatch({ type: 'AUTH_CHECK_START' });
+
             if (isAuthenticated()) {
                 try {
                     const user = await getCurrentUser();
                     dispatch({ type: 'LOGIN_SUCCESS', payload: user });
                 } catch (error) {
                     // Token might be invalid/expired
+                    console.log('Token validation failed, logging out');
                     removeAuthTokens();
                     dispatch({ type: 'LOGOUT' });
                 }
+            } else {
+                // No token found, user is not authenticated
+                dispatch({ type: 'LOGOUT' });
             }
         };
 

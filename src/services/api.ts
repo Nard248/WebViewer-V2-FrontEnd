@@ -3,7 +3,8 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 
 // Get API base URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://webviewerv2back-fdffdsavchafg3af.centralus-01.azurewebsites.net/api/v1';
 const API_TIMEOUT = 30000000; // 30 seconds
 
 // Debug flag - set to true during development

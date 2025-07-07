@@ -1,216 +1,150 @@
+// src/components/map/MapContainer.tsx
 import React, { useEffect, useRef, useState } from 'react';
-import { Box } from '@mui/material';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { Project, LayerGroup, Basemap, Layer } from '../../types';
-import MapLoadingOverlay from './MapLoadingOverlay';
-import LayerControl from './controls/LayerControl';
-import BasemapControl from './controls/BasemapControl';
-import MapToolbar from './controls/MapToolbar';
+import { Box } from '@mui/material';
+import { Layer, LayerFunction } from '../../types/layer.types';
 import { mapService } from '../../services/mapService';
+import { createTowerPopupHTML, isAntennaLayer, getTowerCompanyFromLayerName } from '../viewer/EnhancedTowerPopupSystem';
 
-// Fix Leaflet default icon issue
+// Fix Leaflet default marker icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
+    iconUrl: require('leaflet/dist/images/marker-icon.png'),
+    shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
 });
 
 interface MapContainerProps {
-    project: Project;
-    layerGroups: LayerGroup[];
-    basemaps: Basemap[];
-    tools: any[];
+    layers: Layer[];
+    center?: [number, number];
+    zoom?: number;
+    basemapUrl?: string;
 }
 
-const MapContainer: React.FC<MapContainerProps> = ({ project, layerGroups, basemaps, tools }) => {
+const MapContainer: React.FC<MapContainerProps> = ({
+                                                       layers,
+                                                       center = [51.505, -0.09],
+                                                       zoom = 13,
+                                                       basemapUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                                                   }) => {
     const mapRef = useRef<L.Map | null>(null);
-    const layersRef = useRef<{ [id: number]: L.Layer }>({});
-    const clusterGroupsRef = useRef<{ [id: number]: L.MarkerClusterGroup }>({});
-
-    const [loading, setLoading] = useState<boolean>(false);
-    const [loadingMessage, setLoadingMessage] = useState<string>('');
-    const [currentBasemap, setCurrentBasemap] = useState<number | null>(null);
-    const [mapReady, setMapReady] = useState<boolean>(false);
-    const [basemapLayers, setBasemapLayers] = useState<{ [id: number]: L.TileLayer }>({});
+    const layersRef = useRef<{ [key: number]: L.Layer }>({});
+    const [isLoading, setIsLoading] = useState(true);
 
     // Initialize map
     useEffect(() => {
         if (!mapRef.current) {
-            const center = project.default_center
-                ? [project.default_center.lat, project.default_center.lng]
-                : [39.8283, -98.5795]; // Fallback to USA center
-
             const map = L.map('map', {
-                center: center as L.LatLngExpression,
-                zoom: project.default_zoom || 4,
-                minZoom: project.min_zoom || 1,
-                maxZoom: project.max_zoom || 18,
-                zoomControl: project.map_controls?.showZoomControl !== false,
+                center,
+                zoom,
+                zoomControl: true,
+                attributionControl: true,
             });
 
-            // Add scale control if enabled
-            if (project.map_controls?.showScaleControl) {
-                L.control.scale().addTo(map);
-            }
+            // Add basemap
+            L.tileLayer(basemapUrl, {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
 
             mapRef.current = map;
-
-            // Initialize basemap layers
-            const basemapLayersObj: { [id: number]: L.TileLayer } = {};
-            let defaultBasemapId: number | null = null;
-
-            basemaps.forEach(basemap => {
-                if (basemap.url_template) {
-                    const tileLayer = L.tileLayer(basemap.url_template, {
-                        attribution: basemap.attribution || '',
-                        maxZoom: basemap.options?.maxZoom || 19,
-                        ...basemap.options
-                    });
-
-                    basemapLayersObj[basemap.id] = tileLayer;
-
-                    if (basemap.is_default) {
-                        tileLayer.addTo(map);
-                        defaultBasemapId = basemap.id;
-                    }
-                } else if (basemap.is_default) {
-                    // Handle empty URL template (like white background)
-                    const emptyLayer = L.tileLayer('', {
-                        attribution: basemap.attribution || ''
-                    });
-                    basemapLayersObj[basemap.id] = emptyLayer;
-                    emptyLayer.addTo(map);
-                    defaultBasemapId = basemap.id;
-
-                    // Apply white background to map
-                    document.querySelector('#map')?.classList.add('white-background');
-                }
-            });
-
-            setBasemapLayers(basemapLayersObj);
-            setCurrentBasemap(defaultBasemapId);
-            setMapReady(true);
+            setIsLoading(false);
         }
 
         return () => {
             if (mapRef.current) {
                 mapRef.current.remove();
                 mapRef.current = null;
-                document.querySelector('#map')?.classList.remove('white-background');
             }
         };
-    }, [project, basemaps]);
+    }, []);
 
-    // Load visible layers on initial load
+    // Update map center and zoom when props change
     useEffect(() => {
-        if (mapReady && mapRef.current) {
-            const visibleLayers = layerGroups
-                .filter(group => group.is_visible !== false)
-                .flatMap(group =>
-                    group.layers.filter(layer => layer.is_visible)
-                );
-
-            if (visibleLayers.length > 0) {
-                loadLayers(visibleLayers);
-            }
+        if (mapRef.current) {
+            mapRef.current.setView(center, zoom);
         }
-    }, [mapReady, layerGroups]);
+    }, [center, zoom]);
 
-    // Load layer data from backend
-    const loadLayers = async (layers: Layer[]) => {
+    // Handle layers
+    useEffect(() => {
+        if (!mapRef.current || isLoading) return;
+
+        // Remove existing layers
+        Object.values(layersRef.current).forEach(layer => {
+            mapRef.current!.removeLayer(layer);
+        });
+        layersRef.current = {};
+
+        // Add new layers
+        layers.forEach(layer => {
+            if (layer.is_visible_by_default) {
+                loadLayer(layer);
+            }
+        });
+    }, [layers, isLoading]);
+
+    const loadLayer = async (layer: Layer) => {
         if (!mapRef.current) return;
 
-        setLoading(true);
-        setLoadingMessage('Loading layer data...');
-
         try {
-            for (const layer of layers) {
-                if (layersRef.current[layer.id]) {
-                    // Layer already loaded
-                    continue;
-                }
+            const bounds = mapRef.current.getBounds().toBBoxString();
+            const currentZoom = mapRef.current.getZoom();
 
-                setLoadingMessage(`Loading ${layer.name}...`);
-
-                const bounds = mapRef.current.getBounds();
-                const zoom = mapRef.current.getZoom();
-                const boundingBox = [
-                    bounds.getWest(),
-                    bounds.getSouth(),
-                    bounds.getEast(),
-                    bounds.getNorth()
-                ].join(',');
-
-                // Check if layer has clustering enabled
-                const clusterFunction = layer.functions?.find(fn => fn.type === 'clustering');
-
-                if (clusterFunction) {
-                    await loadClusteredLayer(layer, clusterFunction, boundingBox, zoom);
-                } else {
-                    await loadRegularLayer(layer, boundingBox, zoom);
-                }
+            if (layer.enable_clustering && layer.layer_functions?.length > 0) {
+                await loadClusteredLayer(layer, bounds, currentZoom, layer.layer_functions[0]);
+            } else {
+                await loadRegularLayer(layer, bounds, currentZoom);
             }
         } catch (error) {
-            console.error('Error loading layers:', error);
-        } finally {
-            setLoading(false);
+            console.error(`Error loading layer ${layer.name}:`, error);
         }
     };
 
-    const loadClusteredLayer = async (layer: Layer, clusterFunction: any, bounds: string, zoom: number) => {
+    const loadClusteredLayer = async (layer: Layer, bounds: string, zoom: number, clusterFunction?: LayerFunction) => {
         if (!mapRef.current) return;
 
         try {
-            // Create cluster group with custom options
-            let clusterGroup: L.MarkerClusterGroup;
-
-            if (clusterGroupsRef.current[layer.id]) {
-                clusterGroup = clusterGroupsRef.current[layer.id];
-            } else {
-                const clusterOptions: L.MarkerClusterGroupOptions = {
-                    maxClusterRadius: clusterFunction.arguments?.radius || 80,
-                    disableClusteringAtZoom: clusterFunction.arguments?.maxZoom || undefined
-                };
-
-                // If there's a custom icon create function, evaluate it
-                if (clusterFunction.arguments?.iconCreateFunction) {
-                    try {
-                        // This is potentially unsafe as it evaluates code from the server
-                        // In production, you should validate this code or use a safer approach
-                        const iconCreateFn = new Function('return ' + clusterFunction.arguments.iconCreateFunction)();
-                        clusterOptions.iconCreateFunction = iconCreateFn;
-                    } catch (e) {
-                        console.error('Error evaluating custom cluster icon function:', e);
-                    }
-                }
-
-                clusterGroup = L.markerClusterGroup(clusterOptions);
-                clusterGroupsRef.current[layer.id] = clusterGroup;
-            }
-
             // Fetch layer data
             const { features } = await mapService.getLayerData(layer.id, 1, bounds, zoom);
 
+            // Create cluster group with function options
+            const clusterOptions = clusterFunction?.function_options || {
+                showCoverageOnHover: false,
+                maxClusterRadius: 80,
+                disableClusteringAtZoom: 11,
+                spiderfyOnMaxZoom: true,
+                chunkedLoading: true,
+            };
+
+            const clusterGroup = L.markerClusterGroup(clusterOptions);
+
             // Process features based on layer type
             const geoJsonLayer = L.geoJSON(features, {
-                style: (feature) => {
-                    // Apply style from layer
-                    return {
-                        color: layer.style?.color || '#3388ff',
-                        weight: layer.style?.weight || 3,
-                        opacity: layer.style?.opacity || 1,
-                        fillColor: layer.style?.fillColor || layer.style?.color || '#3388ff',
-                        fillOpacity: layer.style?.fillOpacity || 0.2,
-                        radius: layer.style?.radius || 6
-                    };
-                },
+                style: (feature) => ({
+                    color: layer.style?.color || '#3388ff',
+                    weight: layer.style?.weight || 3,
+                    opacity: layer.style?.opacity || 1,
+                    fillColor: layer.style?.fillColor || layer.style?.color || '#3388ff',
+                    fillOpacity: layer.style?.fillOpacity || 0.2,
+                    radius: layer.style?.radius || 6
+                }),
                 pointToLayer: (feature, latlng) => {
-                    // Create circle markers for points
+                    // Check if this is a tower layer and has marker options
+                    if (isAntennaLayer(layer.name) && layer.marker_options) {
+                        return L.marker(latlng, {
+                            icon: L.divIcon({
+                                html: `<i class="${layer.marker_options.prefix || 'fa'} ${layer.marker_options.prefix || 'fa'}-${layer.marker_options.icon || 'wifi'}" style="color: ${layer.marker_options.iconColor || 'white'}; background-color: ${layer.marker_options.color || 'blue'}; padding: 6px; border-radius: 50%;"></i>`,
+                                iconSize: [30, 30],
+                                className: 'custom-div-icon'
+                            })
+                        });
+                    }
+
+                    // Default circle marker
                     return L.circleMarker(latlng, {
                         radius: layer.style?.radius || 6,
                         fillColor: layer.style?.fillColor || '#3388ff',
@@ -223,8 +157,23 @@ const MapContainer: React.FC<MapContainerProps> = ({ project, layerGroups, basem
                 onEachFeature: (feature, leafletLayer) => {
                     // Add popup if properties exist
                     if (feature.properties) {
-                        const popupContent = createPopupContent(feature.properties);
-                        leafletLayer.bindPopup(popupContent);
+                        let popupContent: string;
+
+                        // Check if this is an antenna/tower layer
+                        if (isAntennaLayer(layer.name)) {
+                            const companyName = getTowerCompanyFromLayerName(layer.name);
+                            popupContent = createTowerPopupHTML(feature.properties, companyName);
+                        } else {
+                            // Standard popup for non-tower layers
+                            popupContent = createStandardPopupContent(feature.properties);
+                        }
+
+                        // Bind popup with appropriate options
+                        const popupOptions = isAntennaLayer(layer.name)
+                            ? { maxWidth: 450, maxHeight: 400, className: 'tower-popup' }
+                            : { maxWidth: 300 };
+
+                        leafletLayer.bindPopup(popupContent, popupOptions);
                     }
                 }
             });
@@ -260,7 +209,18 @@ const MapContainer: React.FC<MapContainerProps> = ({ project, layerGroups, basem
                     };
                 },
                 pointToLayer: (feature, latlng) => {
-                    // Create circle markers for points
+                    // Check if this is a tower layer and has marker options
+                    if (isAntennaLayer(layer.name) && layer.marker_options) {
+                        return L.marker(latlng, {
+                            icon: L.divIcon({
+                                html: `<i class="${layer.marker_options.prefix || 'fa'} ${layer.marker_options.prefix || 'fa'}-${layer.marker_options.icon || 'wifi'}" style="color: ${layer.marker_options.iconColor || 'white'}; background-color: ${layer.marker_options.color || 'blue'}; padding: 6px; border-radius: 50%;"></i>`,
+                                iconSize: [30, 30],
+                                className: 'custom-div-icon'
+                            })
+                        });
+                    }
+
+                    // Default circle marker
                     return L.circleMarker(latlng, {
                         radius: layer.style?.radius || 6,
                         fillColor: layer.style?.fillColor || '#3388ff',
@@ -273,8 +233,23 @@ const MapContainer: React.FC<MapContainerProps> = ({ project, layerGroups, basem
                 onEachFeature: (feature, leafletLayer) => {
                     // Add popup if properties exist
                     if (feature.properties) {
-                        const popupContent = createPopupContent(feature.properties);
-                        leafletLayer.bindPopup(popupContent);
+                        let popupContent: string;
+
+                        // Check if this is an antenna/tower layer
+                        if (isAntennaLayer(layer.name)) {
+                            const companyName = getTowerCompanyFromLayerName(layer.name);
+                            popupContent = createTowerPopupHTML(feature.properties, companyName);
+                        } else {
+                            // Standard popup for non-tower layers
+                            popupContent = createStandardPopupContent(feature.properties);
+                        }
+
+                        // Bind popup with appropriate options
+                        const popupOptions = isAntennaLayer(layer.name)
+                            ? { maxWidth: 450, maxHeight: 400, className: 'tower-popup' }
+                            : { maxWidth: 300 };
+
+                        leafletLayer.bindPopup(popupContent, popupOptions);
                     }
                 }
             });
@@ -287,8 +262,8 @@ const MapContainer: React.FC<MapContainerProps> = ({ project, layerGroups, basem
         }
     };
 
-    // Create basic popup content from feature properties
-    const createPopupContent = (properties: any): string => {
+    // Create standard popup content for non-tower layers
+    const createStandardPopupContent = (properties: any): string => {
         if (!properties) return 'No properties';
 
         let content = '<div class="feature-popup">';
@@ -322,125 +297,34 @@ const MapContainer: React.FC<MapContainerProps> = ({ project, layerGroups, basem
                 displayValue = JSON.stringify(value);
             }
 
-            content += `<tr><td><strong>${key}:</strong></td><td>${displayValue}</td></tr>`;
+            content += `<tr>
+                <td style="padding: 4px; font-weight: bold;">${key}:</td>
+                <td style="padding: 4px;">${displayValue}</td>
+            </tr>`;
         });
-        content += '</table></div>';
+        content += '</table>';
+        content += '</div>';
 
         return content;
     };
 
-    // Handle layer visibility toggle
-    const handleLayerToggle = (layerId: number, visible: boolean) => {
-        if (!mapRef.current) return;
-
-        const layer = layerGroups
-            .flatMap(group => group.layers)
-            .find(l => l.id === layerId);
-
-        if (!layer) return;
-
-        if (visible) {
-            if (!layersRef.current[layerId]) {
-                // Layer needs to be loaded
-                loadLayers([layer]);
-            } else {
-                // Layer already loaded, just add it to map
-                const layerInstance = layersRef.current[layerId];
-                mapRef.current.addLayer(layerInstance);
-            }
-        } else {
-            // Remove layer from map
-            if (layersRef.current[layerId]) {
-                const layerInstance = layersRef.current[layerId];
-                mapRef.current.removeLayer(layerInstance);
-            }
-        }
-    };
-
-    // Handle basemap change
-    const handleBasemapChange = (basemapId: number) => {
-        if (!mapRef.current) return;
-
-        // Remove current basemap
-        if (currentBasemap !== null && basemapLayers[currentBasemap]) {
-            mapRef.current.removeLayer(basemapLayers[currentBasemap]);
-            document.querySelector('#map')?.classList.remove('white-background');
-        }
-
-        // Add new basemap
-        const newBasemap = basemaps.find(b => b.id === basemapId);
-        if (newBasemap) {
-            if (newBasemap.url_template && basemapLayers[basemapId]) {
-                mapRef.current.addLayer(basemapLayers[basemapId]);
-            } else {
-                // Handle empty URL template (white background)
-                document.querySelector('#map')?.classList.add('white-background');
-            }
-
-            setCurrentBasemap(basemapId);
-        }
-    };
-
     return (
-        <Box position="relative" width="100%" height="100%">
-            {/* Map Container */}
-            <Box
-                id="map"
-                width="100%"
-                height="100%"
-                sx={{
-                    '&.white-background': {
-                        background: '#fff'
-                    },
-                    '.feature-popup': {
-                        maxHeight: '300px',
-                        overflowY: 'auto',
-                        padding: '5px',
-                        '& table': {
-                            borderCollapse: 'collapse',
-                            width: '100%'
-                        },
-                        '& td': {
-                            padding: '3px',
-                            verticalAlign: 'top'
-                        }
-                    },
-                    '.marker-cluster-small': {
-                        backgroundColor: 'rgba(181, 226, 140, 0.6)'
-                    },
-                    '.marker-cluster-medium': {
-                        backgroundColor: 'rgba(241, 211, 87, 0.6)'
-                    },
-                    '.marker-cluster-large': {
-                        backgroundColor: 'rgba(253, 156, 115, 0.6)'
-                    }
-                }}
-            />
-
-            {/* Layer Control */}
-            {project.map_controls?.showLayerControl !== false && (
-                <Box position="absolute" top={10} right={10} zIndex={1000} bgcolor="white" boxShadow={2} borderRadius={1}>
-                    <LayerControl
-                        layerGroups={layerGroups}
-                        onLayerToggle={handleLayerToggle}
-                    />
-                </Box>
-            )}
-
-            {/* Basemap Control */}
-            <Box position="absolute" bottom={30} right={10} zIndex={1000}>
-                <BasemapControl
-                    basemaps={basemaps}
-                    selectedBasemapId={currentBasemap}
-                    onBasemapChange={handleBasemapChange}
-                />
-            </Box>
-
-            {/* Loading Overlay */}
-            {loading && (
-                <MapLoadingOverlay message={loadingMessage} />
-            )}
-        </Box>
+        <Box
+            id="map"
+            sx={{
+                width: '100%',
+                height: '100%',
+                position: 'relative',
+                '& .leaflet-container': {
+                    width: '100%',
+                    height: '100%',
+                },
+                '& .custom-div-icon': {
+                    background: 'transparent',
+                    border: 'none',
+                }
+            }}
+        />
     );
 };
 

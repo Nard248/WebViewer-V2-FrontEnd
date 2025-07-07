@@ -67,30 +67,27 @@ import BasemapsPage from './pages/components/BasemapsPage';
 import BasemapCreatePage from './pages/components/BasemapCreatePage';
 import BasemapEditPage from './pages/components/BasemapEditPage';
 
-
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import ApiInspectorPage from './pages/debug/ApiInspectorPage';
 
-
 function App() {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            <AuthProvider>
-                <Router>
+            <Router>
+                <AuthProvider>
                     <Routes>
-                        {/* Auth Routes */}
+                        {/* Auth Routes - No protection needed */}
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                         <Route path="/reset-password/:token/:uidb64" element={<ResetPasswordPage />} />
-                        <Route path="debug/api-inspector" element={<ProtectedRoute component={ApiInspectorPage} />} />
 
-                        {/* Standalone Viewer Route - No authentication required */}
-                        <Route path="/viewer/:id" element={<StandaloneViewerPage />} />
+                        {/* Standalone Viewer Route - Protected but with special layout */}
+                        <Route path="/viewer/:id" element={<ProtectedRoute component={StandaloneViewerPage} />} />
 
-                        {/* Protected Routes */}
+                        {/* Protected Routes with Main Layout */}
                         <Route path="/" element={<ProtectedRoute component={MainLayout} />}>
                             <Route index element={<Navigate to="/dashboard" replace />} />
 
@@ -129,9 +126,6 @@ function App() {
                             {/* User Profile */}
                             <Route path="profile" element={<ProfilePage />} />
 
-                            {/* Catch-all route */}
-                            <Route path="*" element={<NotFoundPage />} />
-
                             {/* Components */}
                             <Route path="components/styles" element={<StylesPage />} />
                             <Route path="components/styles/create" element={<StyleCreatePage />} />
@@ -155,10 +149,13 @@ function App() {
                             <Route path="components/basemaps/:id/edit" element={<BasemapEditPage />} />
 
                             <Route path="debug/api-inspector" element={<ApiInspectorPage />} />
+
+                            {/* Catch-all route */}
+                            <Route path="*" element={<NotFoundPage />} />
                         </Route>
                     </Routes>
-                </Router>
-            </AuthProvider>
+                </AuthProvider>
+            </Router>
         </ThemeProvider>
     );
 }

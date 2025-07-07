@@ -360,3 +360,69 @@
 .standalone-viewer-container [class*="copy-btn-"].copied {
     animation: copySuccess 0.3s ease-in-out;
 }
+
+/* County labels and CBRS popup styles */
+.county-label {
+    pointer-events: none !important;
+}
+
+.county-label div {
+    pointer-events: none !important;
+}
+
+.cbrs-popup .leaflet-popup-content-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.cbrs-popup .leaflet-popup-content {
+    margin: 0;
+    padding: 0;
+}
+
+.cbrs-popup .leaflet-popup-tip {
+    background: white;
+}
+/* Add to existing CSS or create new section */
+.selected-tower-icon {
+    background: none !important;
+    border: none !important;
+    z-index: 1000 !important;
+}
+
+.selected-tower-icon svg {
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.4));
+}
+
+/* Ensure selected towers appear above other markers */
+.leaflet-marker-pane .selected-tower-icon {
+    z-index: 1000 !important;
+}
+
+
+/* Add these styles for white background */
+.standalone-viewer-page {
+    background-color: #ffffff !important;
+    min-height: 100vh;
+}
+
+/* Ensure the entire page is white */
+body.standalone-viewer-active {
+    background-color: #ffffff !important;
+}
+
+/* Make sure map container is also white */
+.standalone-viewer-page .map-container {
+    background-color: #ffffff !important;
+}
+
+/* Ensure leaflet container is white */
+.standalone-viewer-page .leaflet-container {
+    background-color: #ffffff !important;
+}
+
+/* Hide any tile layers if needed for white background basemap */
+.standalone-viewer-page .white-basemap .leaflet-tile-pane {
+    opacity: 0 !important;
+}

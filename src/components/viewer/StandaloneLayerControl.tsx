@@ -1,6 +1,6 @@
 // src/components/viewer/StandaloneLayerControl.tsx - With Zoom Level Feedback
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, FormControlLabel, Checkbox, Radio, RadioGroup, Typography, IconButton, Collapse, Tooltip } from '@mui/material';
+import { Box, FormControlLabel, Checkbox, Radio, RadioGroup, Typography, IconButton, Collapse, Tooltip, Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -8,8 +8,11 @@ import LayersIcon from '@mui/icons-material/Layers';
 import CloseIcon from '@mui/icons-material/Close';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import GetAppIcon from '@mui/icons-material/GetApp';
 import { TowerWithBuffers, BufferVisibilityState, VirtualBufferLayer } from './FrontendAntennaBufferSystem';
 import { ZoomHint, zoomVisibilityManager } from './ZoomVisibilityManager';
+import { SelectedTowersVirtualLayer, selectedTowersManager } from './SelectedTowersManager';
+import { exportCSV } from '../../utils';
 
 interface StandaloneLayerControlProps {
     projectData: any;
@@ -24,10 +27,14 @@ interface StandaloneLayerControlProps {
     // Zoom system props
     zoomHints?: ZoomHint[];
     currentZoom?: number;
+    // Selected towers props
+    selectedTowersLayer?: SelectedTowersVirtualLayer | null;
+    onSelectedTowersToggle?: (isVisible: boolean) => void;
 }
 
+
 // Styled components
-const ControlContainer = styled(Box)(({ theme }) => ({
+const ControlContainer = styled(Box)(({}) => ({
     position: 'absolute',
     top: '10px',
     right: '10px',
@@ -95,6 +102,51 @@ const SectionHeader = styled(Typography)({
     paddingBottom: '2px',
     '&:first-of-type': {
         marginTop: '0',
+    }
+});
+
+// New styled component for the Selected Towers section
+const SelectedTowersSection = styled(Box)({
+    backgroundColor: '#f8f9fa',
+    border: '1px solid #e9ecef',
+    borderRadius: '5px',
+    padding: '8px',
+    marginBottom: '12px',
+});
+
+const SelectedTowersHeader = styled(Box)({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '6px',
+});
+
+const SelectedTowersTitle = styled(Typography)({
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#495057',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+});
+
+const SelectedTowersCount = styled(Typography)({
+    fontSize: '11px',
+    color: '#6c757d',
+    fontStyle: 'italic',
+});
+
+const ExportButton = styled(Button)({
+    fontSize: '11px',
+    padding: '4px 12px',
+    minWidth: 'auto',
+    textTransform: 'none',
+    borderRadius: '3px',
+    '& .MuiButton-startIcon': {
+        marginRight: '4px',
+        '& svg': {
+            fontSize: '16px',
+        }
     }
 });
 
@@ -217,7 +269,9 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                                                            bufferVisibility = {},
                                                                            zoomHints = [],
                                                                            currentZoom = 7,
-                                                                       }) => {
+                                                                           selectedTowersLayer,
+                                                                           onSelectedTowersToggle}) => {
+
     const [isExpanded, setIsExpanded] = useState(false);
     const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
     const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -227,6 +281,25 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
         }
         return new Set();
     });
+
+    const handleExportSelectedTowers = () => {
+        const towers = selectedTowersManager.getSelectedTowers();
+        if (towers.length === 0) {
+            console.warn('No selected towers to export');
+            return;
+        }
+
+        const csvData = towers.map(tower => ({
+            id: tower.id,
+            latitude: tower.coordinates[0],
+            longitude: tower.coordinates[1],
+            layer: tower.layerName,
+            company: tower.companyName,
+            ...tower.data
+        }));
+
+        exportCSV(csvData, 'selected_towers');
+    };
 
     // Clear any existing timeout
     const clearCollapseTimeout = () => {
@@ -277,6 +350,11 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
 
     // Function to extract color from layer style
     const getLayerColor = (layer: any): string => {
+        // Special handling for Selected Towers
+        if (layer.id === -1 || layer.name === 'Selected Towers') {
+            return '#FFD700'; // Gold color for selected towers
+        }
+
         if (layer.style?.fillColor) return layer.style.fillColor;
         if (layer.style?.color) return layer.style.color;
         if (layer.layer_type_name === 'Point Layer') return '#3388ff';
@@ -285,10 +363,13 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
         return '#3388ff';
     };
 
+
     // Check if a layer is an antenna tower layer
     const isAntennaTowerLayer = (layerName: string): boolean => {
-        return layerName.toLowerCase().includes('antenna locations');
+        return layerName.toLowerCase().includes('antenna locations') ||
+            layerName.toLowerCase() === 'selected towers';
     };
+
 
     // Find tower buffer relationship for a layer
     const getTowerBufferRelationship = (layerId: number): TowerWithBuffers | undefined => {
@@ -322,6 +403,11 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
     const formatZoomRequirement = (needsZoom: number): string => {
         const zoomDiff = needsZoom - currentZoom;
         return `Zoom in ${zoomDiff} more level${zoomDiff !== 1 ? 's' : ''}`;
+    };
+
+    // Get selected towers count
+    const getSelectedTowersCount = (): number => {
+        return selectedTowersManager.getSelectedTowers().length;
     };
 
     // Cleanup on unmount
@@ -359,6 +445,33 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                         >
                             <CloseIcon />
                         </IconButton>
+                    )}
+
+                    {/* Selected Towers Section - NEW: Added at the top */}
+                    {getSelectedTowersCount() > 0 && (
+                        <SelectedTowersSection>
+                            <SelectedTowersHeader>
+                                <SelectedTowersTitle>
+                                    <ColorIndicator
+                                        layerColor="#FFD700"
+                                        layerType="Point Layer"
+                                    />
+                                    Selected Towers
+                                </SelectedTowersTitle>
+                                <ExportButton
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<GetAppIcon />}
+                                    onClick={handleExportSelectedTowers}
+                                    color="primary"
+                                >
+                                    Export
+                                </ExportButton>
+                            </SelectedTowersHeader>
+                            <SelectedTowersCount>
+                                {getSelectedTowersCount()} tower{getSelectedTowersCount() !== 1 ? 's' : ''} selected
+                            </SelectedTowersCount>
+                        </SelectedTowersSection>
                     )}
 
                     {/* Zoom status indicator */}
@@ -417,11 +530,12 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                     <Collapse in={expandedGroups.has(group.id)}>
                                         <LayerGroupContent>
                                             {group.layers?.map((layer: any) => {
+                                                const isChecked = visibleLayers.has(layer.id);
                                                 const isTowerLayer = isAntennaTowerLayer(layer.name);
                                                 const towerRelationship = getTowerBufferRelationship(layer.id);
                                                 const layerVisible = visibleLayers.has(layer.id);
                                                 const zoomStatus = getLayerZoomStatus(layer.id);
-                                                const hiddenByZoom = isTowerLayer && !zoomStatus.canShow;
+                                                const hiddenByZoom = isChecked && isTowerLayer && !zoomStatus.canShow;
 
                                                 return (
                                                     <Box key={layer.id}>
@@ -437,7 +551,6 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                                                         checked={layerVisible}
                                                                         onChange={() => onLayerToggle(layer.id)}
                                                                         size="small"
-                                                                        disabled={hiddenByZoom}
                                                                     />
                                                                 }
                                                                 label={
@@ -445,8 +558,12 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                                                         <Typography
                                                                             sx={{
                                                                                 fontSize: '13px',
-                                                                                color: hiddenByZoom ? '#ccc' : '#333',
-                                                                                textDecoration: hiddenByZoom ? 'line-through' : 'none'
+                                                                                color: (isTowerLayer && isChecked && hiddenByZoom)
+                                                                                    ? '#999'
+                                                                                    : isChecked
+                                                                                        ? '#333'
+                                                                                        : '#333',
+                                                                                fontStyle: (isTowerLayer && isChecked && hiddenByZoom) ? 'italic' : 'normal'
                                                                             }}
                                                                         >
                                                                             {layer.name}
@@ -465,7 +582,7 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                                         </LayerItem>
 
                                                         {/* Zoom requirement message */}
-                                                        {isTowerLayer && hiddenByZoom && zoomStatus.needsZoom && (
+                                                        {isTowerLayer && isChecked && hiddenByZoom && zoomStatus.needsZoom && (
                                                             <ZoomRequirement>
                                                                 <ZoomInIcon sx={{ fontSize: '12px' }} />
                                                                 {formatZoomRequirement(zoomStatus.needsZoom)}
@@ -528,7 +645,7 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                         </>
                     )}
 
-                    {/* System statistics */}
+                    {/* System statistics - moved to bottom and simplified */}
                     {(towerBufferRelationships.length > 0 || zoomHints.length > 0) && (
                         <Box sx={{ marginTop: '8px', padding: '4px', backgroundColor: '#f9f9f9', borderRadius: '3px' }}>
                             {towerBufferRelationships.length > 0 && (
