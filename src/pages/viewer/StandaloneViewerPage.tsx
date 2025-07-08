@@ -156,6 +156,49 @@ const createTowerIcon = (companyName: string): L.DivIcon => {
     });
 };
 
+const createClusterIcon = (cluster: any): L.DivIcon => {
+    const childCount = cluster.getChildCount();
+    const ranges = [
+        { range: [1, 50], color: '#00ff00' },
+        { range: [50, 100], color: '#80ff00' },
+        { range: [100, 200], color: '#ffff00' },
+        { range: [200, 400], color: '#ffbf00' },
+        { range: [400, 700], color: '#ff8000' },
+        { range: [700, 1000], color: '#ff4000' },
+        { range: [1000, 2000], color: '#ff0000' },
+        { range: [2000, Infinity], color: '#800000' }
+    ];
+
+    const rangeMatch = ranges.find(r => childCount >= r.range[0] && childCount <= r.range[1]);
+    const clusterColor = rangeMatch ? rangeMatch.color : '#333333';
+
+    const getTextColor = (hexColor: string): string => {
+        const r = parseInt(hexColor.substring(1, 3), 16);
+        const g = parseInt(hexColor.substring(3, 5), 16);
+        const b = parseInt(hexColor.substring(5, 7), 16);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness > 125 ? 'black' : 'white';
+    };
+
+    const textColor = getTextColor(clusterColor);
+
+    return L.divIcon({
+        html: `
+            <div style="
+                display:flex; align-items:center; justify-content:center;
+                width:40px; height:40px;
+                border-radius:50%;
+                background: radial-gradient(circle, ${clusterColor} 60%, rgba(255,255,255,0) 100%);
+                color:${textColor};
+                font-weight:bold;
+            ">
+                ${childCount}
+            </div>
+        `,
+        className: 'marker-cluster'
+    });
+};
+
 
 const StandaloneViewerPage: React.FC = () => {
     const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -957,6 +1000,7 @@ const createWhiteTileLayer = (): L.TileLayer => {
                         spiderfyOnMaxZoom: clusteringOptions.spiderfyOnMaxZoom !== false,
                         removeOutsideVisibleBounds: clusteringOptions.removeOutsideVisibleBounds || false,
                         maxClusterRadius: clusteringOptions.maxClusterRadius || 80,
+                        iconCreateFunction: createClusterIcon,
                         ...clusteringOptions
                     });
 
