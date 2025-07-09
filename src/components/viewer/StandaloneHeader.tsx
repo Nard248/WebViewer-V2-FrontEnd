@@ -12,30 +12,41 @@ const HeaderContainer = styled(Box)({
     top: 0,
     left: 0,
     right: 0,
-    height: '48px',
+    height: '44px',
     backgroundColor: '#4CAF50',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '0 24px',
+    padding: '10px 20px',
+    color: 'white',
+    fontSize: '18px',
+    fontWeight: 'bold',
+    zIndex: 2000,
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    zIndex: 2000, // Increased to ensure it's always on top
 });
 
 const Title = styled(Typography)({
-    color: 'white',
     fontSize: '18px',
-    fontWeight: 500,
+    fontWeight: 'bold',
+    color: 'white',
+});
+
+const CenterText = styled(Box)({
+    flex: '1 1 0%',
+    textAlign: 'center',
+    fontSize: '16px',
+    fontWeight: 'normal',
+    color: 'white',
 });
 
 const ContactLink = styled(Link)({
-    color: 'white',
     fontSize: '14px',
+    fontWeight: 'normal',
+    color: 'white',
     textDecoration: 'none',
-    cursor: 'pointer',
     '&:hover': {
         textDecoration: 'underline',
-    }
+    },
 });
 
 const StandaloneHeader: React.FC<StandaloneHeaderProps> = ({ projectName }) => {
@@ -43,21 +54,15 @@ const StandaloneHeader: React.FC<StandaloneHeaderProps> = ({ projectName }) => {
         <HeaderContainer>
             <Title>
                 Wireless2020 WebGisViewer
-                {projectName && (
-                    <Typography
-                        component="span"
-                        sx={{
-                            fontSize: '14px',
-                            fontWeight: 400,
-                            ml: 2,
-                            opacity: 0.9
-                        }}
-                    >
-                        - {projectName}
-                    </Typography>
-                )}
             </Title>
-            <ContactLink href="https://www.wireless2020.com/contact">
+            <CenterText>
+                {projectName}
+            </CenterText>
+            <ContactLink
+                href="https://www.wireless2020.com/contact"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
                 Contact support
             </ContactLink>
         </HeaderContainer>
