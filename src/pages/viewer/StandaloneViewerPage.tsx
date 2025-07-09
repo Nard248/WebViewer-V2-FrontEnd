@@ -1,6 +1,6 @@
 // src/pages/viewer/StandaloneViewerPage.tsx
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { Box, Typography, Paper } from '@mui/material';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -202,7 +202,12 @@ const createClusterIcon = (cluster: any): L.DivIcon => {
 
 const StandaloneViewerPage: React.FC = () => {
     const { isAuthenticated, isLoading: authLoading } = useAuth();
-    const { id } = useParams<{ id: string }>();
+    const { id, hash } = useParams<{ id?: string; hash?: string }>();
+    const location = useLocation();
+
+    // Determine if this is public access
+    const isPublicAccess = location.pathname.startsWith('/public/');
+    const projectIdentifier = isPublicAccess ? hash : id;
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<L.Map | null>(null);
@@ -236,11 +241,18 @@ const StandaloneViewerPage: React.FC = () => {
 
     const [selectedTowers, setSelectedTowers] = useState<SelectedTower[]>([]);
 
-    if (authLoading) {
+    const getErrorMessage = () => {
+        if (isPublicAccess) {
+            return 'This public link is invalid or has expired. Please contact the project owner for a new link.';
+        }
+        return 'Project not found or access denied.';
+    };
+
+    if (!isPublicAccess && authLoading) {
         return <StandaloneLoadingScreen progress={0} statusMessage="Authenticating..." />;
     }
 
-    if (!isAuthenticated) {
+    if (!isPublicAccess && !isAuthenticated) {
         return <StandaloneLoadingScreen progress={0} statusMessage="Authentication required..." />;
     }
 
@@ -484,17 +496,17 @@ const createWhiteTileLayer = (): L.TileLayer => {
     useEffect(() => {
         let mounted = true;
 
-        const loadProject = async () => {
+        const loadProject = async (projId: string) => {
             try {
                 setLoading(true);
                 setLoadingProgress(5);
                 setLoadingStatus('Loading project configuration...');
 
-                if (!id) {
+                if (!projId) {
                     throw new Error('No project ID provided');
                 }
 
-                const data = await projectService.getProjectConstructor(Number(id));
+                const data = await projectService.getProjectConstructor(Number(projId));
                 setLoadingProgress(15);
 
                 if (!mounted) return;
@@ -565,6 +577,63 @@ const createWhiteTileLayer = (): L.TileLayer => {
             }
         };
 
+        const loadPublicProject = async (token: string) => {
+            try {
+                setLoading(true);
+                setLoadingProgress(10);
+                setLoadingStatus('Loading public project...');
+
+                const data = await projectService.getPublicProjectConstructor(token);
+                setLoadingProgress(20);
+
+                if (!mounted) return;
+
+                setProjectData(data);
+
+                // Public projects may not have CBRS data
+                setLoadingStatus('Pre-loading all layer data...');
+
+                const initialVisibleLayers = new Set<number>();
+                const allLayers: any[] = [];
+
+                if (data.layer_groups) {
+                    data.layer_groups.forEach((group: any) => {
+                        if (group.layers) {
+                            group.layers.forEach((layer: any) => {
+                                allLayers.push(layer);
+                                if (layer.is_visible || layer.is_visible_by_default) {
+                                    initialVisibleLayers.add(layer.id);
+                                }
+                            });
+                        }
+                    });
+                }
+
+                setVisibleLayers(initialVisibleLayers);
+
+                const defaultBasemap = data.basemaps?.find((b: any) => b.is_default);
+                if (defaultBasemap) {
+                    setActiveBasemap(defaultBasemap.id);
+                } else if (data.basemaps?.length > 0) {
+                    setActiveBasemap(data.basemaps[0].id);
+                }
+
+                await preloadAllLayerData(allLayers);
+
+                if (mounted) {
+                    setAllLayersLoaded(true);
+                    setLoadingProgress(100);
+                    setLoading(false);
+                }
+            } catch (err: any) {
+                console.error('Failed to load public project:', err);
+                if (mounted) {
+                    setError('Invalid or expired public link');
+                    setLoading(false);
+                }
+            }
+        };
+
         const preloadAllLayerData = async (allLayers: any[]) => {
             if (allLayers.length === 0) return;
 
@@ -599,18 +668,20 @@ const createWhiteTileLayer = (): L.TileLayer => {
 
                     while (hasMoreChunks) {
                         try {
-                            const chunkData = await mapService.getLayerData(layerId, {
-                                chunk_id: currentChunk,
-                                bounds: '-180,-90,180,90',
-                                zoom: 1
-                            });
+                            const chunkData = isPublicAccess && hash
+                                ? await projectService.getPublicLayerData(layerId, hash)
+                                : await mapService.getLayerData(layerId, {
+                                      chunk_id: currentChunk,
+                                      bounds: '-180,-90,180,90',
+                                      zoom: 1
+                                  });
 
                             if (chunkData.features && chunkData.features.length > 0) {
                                 allFeatures.push(...chunkData.features);
                                 console.log(`Loaded chunk ${currentChunk} with ${chunkData.features.length} features for layer: ${layerInfo.name}`);
                                 currentChunk++;
 
-                                if (chunkData.features.length < 1000) {
+                                if (isPublicAccess || chunkData.features.length < 1000) {
                                     hasMoreChunks = false;
                                 }
                             } else {
@@ -658,12 +729,18 @@ const createWhiteTileLayer = (): L.TileLayer => {
             console.log('Cache info:', cacheInfo);
         };
 
-        loadProject();
+        if (projectIdentifier) {
+            if (isPublicAccess) {
+                loadPublicProject(projectIdentifier);
+            } else {
+                loadProject(projectIdentifier);
+            }
+        }
 
         return () => {
             mounted = false;
         };
-    }, [id]);
+    }, [projectIdentifier, isPublicAccess]);
 
     useEffect(() => {
         // Add class to body when component mounts
@@ -1395,7 +1472,7 @@ const createWhiteTileLayer = (): L.TileLayer => {
     if (error) {
         return (
             <>
-                <StandaloneHeader />
+                <StandaloneHeader isPublicAccess={isPublicAccess} />
                 <Box
                     display="flex"
                     justifyContent="center"
@@ -1407,7 +1484,7 @@ const createWhiteTileLayer = (): L.TileLayer => {
                         <Typography variant="h5" color="error" gutterBottom>
                             Error
                         </Typography>
-                        <Typography>{error}</Typography>
+                        <Typography color="error">{getErrorMessage()}</Typography>
                     </Paper>
                 </Box>
             </>
@@ -1416,7 +1493,7 @@ const createWhiteTileLayer = (): L.TileLayer => {
 
     return (
         <>
-            <StandaloneHeader projectName={projectData?.project?.name} />
+            <StandaloneHeader projectName={projectData?.project?.name} isPublicAccess={isPublicAccess} />
             <Box
                 position="relative"
                 height="calc(100vh - 48px)"

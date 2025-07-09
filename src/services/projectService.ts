@@ -6,7 +6,8 @@ import {
     ProjectUpdate,
     ProjectStats,
     ProjectConstructor,
-    ProjectCloneRequest
+    ProjectCloneRequest,
+    FeatureCollection
 } from '../types';
 import { PaginatedResponse } from '../types';
 
@@ -74,6 +75,40 @@ export const getStandaloneProject = (hash: string): Promise<ProjectConstructor> 
     return apiGet<ProjectConstructor>(`/standalone/${hash}/`);
 };
 
+export const getPublicProjectConstructor = async (
+    publicToken: string
+): Promise<ProjectConstructor> => {
+    try {
+        return await apiGet<ProjectConstructor>(
+            `/constructor/public/${publicToken}/`,
+            {
+                headers: {
+                    'X-Public-Token': publicToken,
+                    Origin: window.location.origin
+                }
+            }
+        );
+    } catch (error) {
+        throw new Error('Failed to load public project');
+    }
+};
+
+export const getPublicLayerData = async (
+    layerId: number,
+    publicToken: string
+): Promise<FeatureCollection> => {
+    try {
+        return await apiGet<FeatureCollection>(`/data/${layerId}/`, {
+            headers: {
+                'X-Public-Token': publicToken,
+                Origin: window.location.origin
+            }
+        });
+    } catch (error) {
+        throw new Error('Failed to load public layer data');
+    }
+};
+
 // Export default as object with all methods
 const projectService = {
     getProjects,
@@ -84,7 +119,8 @@ const projectService = {
     cloneProject,
     getProjectStats,
     getProjectConstructor,
-    getStandaloneProject
+    getStandaloneProject,
+    getPublicProjectConstructor,
+    getPublicLayerData
 };
-
 export default projectService;

@@ -84,7 +84,8 @@ function App() {
                         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                         <Route path="/reset-password/:token/:uidb64" element={<ResetPasswordPage />} />
 
-                        {/* Standalone Viewer Route - Protected but with special layout */}
+                        {/* Standalone Viewer Routes */}
+                        <Route path="/public/:hash" element={<StandaloneViewerPage />} />
                         <Route path="/viewer/:id" element={<ProtectedRoute component={StandaloneViewerPage} />} />
 
                         {/* Protected Routes with Main Layout */}
