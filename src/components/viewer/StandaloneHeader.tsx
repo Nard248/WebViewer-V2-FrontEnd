@@ -5,6 +5,7 @@ import { styled } from '@mui/material/styles';
 
 interface StandaloneHeaderProps {
     projectName?: string;
+    isPublicAccess?: boolean;
 }
 
 const HeaderContainer = styled(Box)({
@@ -49,11 +50,27 @@ const ContactLink = styled(Link)({
     },
 });
 
-const StandaloneHeader: React.FC<StandaloneHeaderProps> = ({ projectName }) => {
+const StandaloneHeader: React.FC<StandaloneHeaderProps> = ({ projectName, isPublicAccess = false }) => {
     return (
         <HeaderContainer>
             <Title>
                 Wireless2020 WebGisViewer
+                {isPublicAccess && (
+                    <Typography
+                        component="span"
+                        sx={{
+                            fontSize: '12px',
+                            fontWeight: 300,
+                            ml: 1,
+                            opacity: 0.8,
+                            backgroundColor: 'rgba(255,255,255,0.2)',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                        }}
+                    >
+                        Public View
+                    </Typography>
+                )}
             </Title>
             <CenterText>
                 {projectName}
