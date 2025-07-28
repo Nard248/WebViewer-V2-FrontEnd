@@ -19,13 +19,15 @@ import { PaginatedResponse } from '../types';
  */
 export const getLayerData = (
     layerId: number,
-    params: LayerDataParams = {}
+    params: LayerDataParams = {},
+    options: any = {}
 ): Promise<FeatureCollection> => {
-    const queryParams = createQueryParams(params);
+    const requestOptions = {
+        params: params,
+        ...options
+    };
 
-    // According to your API docs, the correct endpoint is /api/v1/data/{layer_id}/
-    // The base URL is already included by the apiGet function
-    return apiGet<FeatureCollection>(`/data/${layerId}/`, { params: queryParams });
+    return apiGet<FeatureCollection>(`/data/${layerId}/`, requestOptions);
 };
 
 /**

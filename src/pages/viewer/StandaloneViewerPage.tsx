@@ -206,7 +206,7 @@ const StandaloneViewerPage: React.FC = () => {
     const location = useLocation();
 
     // Determine if this is public access
-    const isPublicAccess = location.pathname.startsWith('/public/');
+    const isPublicAccess = location.pathname.startsWith('/public-viewer/');
     const projectIdentifier = isPublicAccess ? hash : id;
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -668,20 +668,27 @@ const createWhiteTileLayer = (): L.TileLayer => {
 
                     while (hasMoreChunks) {
                         try {
-                            const chunkData = isPublicAccess && hash
-                                ? await projectService.getPublicLayerData(layerId, hash)
-                                : await mapService.getLayerData(layerId, {
-                                      chunk_id: currentChunk,
-                                      bounds: '-180,-90,180,90',
-                                      zoom: 1
-                                  });
+                            const requestOptions = isPublicAccess && hash ? {
+                                headers: {
+                                    'X-Public-Token': hash,
+                                    'Origin': window.location.origin
+                                }
+                            } : {};
+
+                            const chunkData = await mapService.getLayerData(layerId, {
+                                chunk_id: currentChunk,
+                                bounds: '-180,-90,180,90',
+                                zoom: 1
+                            }, requestOptions);
 
                             if (chunkData.features && chunkData.features.length > 0) {
                                 allFeatures.push(...chunkData.features);
                                 console.log(`Loaded chunk ${currentChunk} with ${chunkData.features.length} features for layer: ${layerInfo.name}`);
-                                currentChunk++;
 
-                                if (isPublicAccess || chunkData.features.length < 1000) {
+                                // Use chunk_info to determine if there are more chunks
+                                if (chunkData.chunk_info && chunkData.chunk_info.next_chunk) {
+                                    currentChunk = chunkData.chunk_info.next_chunk;
+                                } else {
                                     hasMoreChunks = false;
                                 }
                             } else {
