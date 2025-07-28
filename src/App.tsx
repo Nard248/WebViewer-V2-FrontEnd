@@ -44,6 +44,7 @@ import NotFoundPage from './pages/NotFoundPage';
 
 // Standalone Viewer
 import StandaloneViewerPage from './pages/viewer/StandaloneViewerPage';
+import StandaloneViewerPageDev from './pages/viewer-dev/StandaloneViewerPageDev';
 
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -87,6 +88,8 @@ function App() {
                         {/* Standalone Viewer Routes */}
                         <Route path="/public-viewer/:hash" element={<StandaloneViewerPage />} />
                         <Route path="/viewer/:id" element={<ProtectedRoute component={StandaloneViewerPage} />} />
+                        <Route path="/public-viewer-dev/:hash" element={<StandaloneViewerPageDev />} />
+                        <Route path="/viewer-dev/:id" element={<ProtectedRoute component={StandaloneViewerPageDev} />} />
 
                         {/* Protected Routes with Main Layout */}
                         <Route path="/" element={<ProtectedRoute component={MainLayout} />}>
