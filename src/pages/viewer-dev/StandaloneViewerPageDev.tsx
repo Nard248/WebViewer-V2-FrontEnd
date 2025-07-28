@@ -19,7 +19,7 @@ const StandaloneViewerPageDev: React.FC = () => {
   const identifier = isPublic ? hash : id;
 
   useEffect(() => {
-    if (!identifier || !mapRef.current) {
+    if (!identifier) {
       setError('No project identifier provided');
       setLoading(false);
       return;
@@ -81,16 +81,6 @@ const StandaloneViewerPageDev: React.FC = () => {
     };
   }, [identifier, isPublic]);
 
-  if (loading) {
-    return (
-      <StandaloneLoadingScreen
-        progress={progress}
-        statusMessage={status}
-        projectName="Development Project"
-      />
-    );
-  }
-
   if (error) {
     return (
       <div style={{
@@ -112,7 +102,21 @@ const StandaloneViewerPageDev: React.FC = () => {
     );
   }
 
-  return <div ref={mapRef} style={{ height: '100vh', width: '100%' }} />;
+  return (
+    <>
+      {loading && (
+        <StandaloneLoadingScreen
+          progress={progress}
+          statusMessage={status}
+          projectName="Development Project"
+        />
+      )}
+      <div
+        ref={mapRef}
+        style={{ height: '100vh', width: '100%', display: loading ? 'none' : 'block' }}
+      />
+    </>
+  );
 };
 
 export default StandaloneViewerPageDev;
