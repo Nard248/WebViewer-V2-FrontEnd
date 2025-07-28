@@ -3,6 +3,10 @@ export interface LayerConfig {
     name: string;
     type: string;
     zIndex?: number;
+    /** Optional style information used for generic GeoJSON layers */
+    style?: any;
+    /** Enable clustering for point layers */
+    enable_clustering?: boolean;
 }
 
 export interface IMapLayer {
