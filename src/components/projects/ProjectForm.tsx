@@ -35,7 +35,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { Project, ProjectCreate, ProjectUpdate } from '../../types/project.types';
 import {
-    getProject,
+    getProjectDetails,
     createProject,
     updateProject,
 } from '../../services/projectService';
@@ -112,7 +112,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
             setError(null);
 
             try {
-                const project = await getProject(projectId);
+                const project = await getProjectDetails(projectId);
                 setFormData(project);
             } catch (err) {
                 setError('Failed to load project details. Please try again.');
