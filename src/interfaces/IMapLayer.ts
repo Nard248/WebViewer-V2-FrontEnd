@@ -1,0 +1,19 @@
+export interface LayerConfig {
+    id: number;
+    name: string;
+    type: string;
+    zIndex?: number;
+}
+
+export interface IMapLayer {
+    readonly id: number;
+    readonly name: string;
+    readonly type: string;
+    isVisible: boolean;
+
+    initialize(map: L.Map): Promise<void>;
+    loadData(data: any): Promise<void>;
+    show(): void;
+    hide(): void;
+    destroy(): void;
+}
