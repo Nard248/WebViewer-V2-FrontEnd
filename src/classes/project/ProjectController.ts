@@ -1,7 +1,5 @@
 import * as L from 'leaflet';
-import TowerLayer from '../layers/TowerLayer';
-import BaseMapLayer from '../layers/BaseMapLayer';
-import GenericLayer from '../layers/GenericLayer';
+import { LayerFactory } from '../factories';
 import { IMapLayer, LayerConfig } from '../../interfaces/IMapLayer';
 import projectService from '../../services/projectService';
 import mapService from '../../services/mapService';
@@ -71,11 +69,7 @@ export default class ProjectController {
         const layers: IMapLayer[] = [];
         data.layer_groups.forEach(group => {
             group.layers.forEach(layerInfo => {
-                if (layerInfo.type === 'tower') {
-                    layers.push(new TowerLayer(layerInfo.id, layerInfo.name, layerInfo.type, layerInfo));
-                } else {
-                    layers.push(new GenericLayer(layerInfo.id, layerInfo.name, layerInfo.type, layerInfo));
-                }
+                layers.push(LayerFactory.createLayer(layerInfo));
             });
         });
         this.layers = layers;
