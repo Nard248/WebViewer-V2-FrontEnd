@@ -22,7 +22,7 @@ export const getProjects = (params: Record<string, unknown> = {}): Promise<Pagin
 /**
  * Get a single project by ID
  */
-export const getProject = (id: number): Promise<Project> => {
+export const getProjectDetails = (id: number): Promise<Project> => {
     return apiGet<Project>(`/projects/${id}/`);
 };
 
@@ -75,6 +75,30 @@ export const getStandaloneProject = (hash: string): Promise<ProjectConstructor> 
     return apiGet<ProjectConstructor>(`/standalone/${hash}/`);
 };
 
+/**
+ * Get project constructor by ID (authenticated)
+ */
+export const getProject = async (id: string): Promise<ProjectConstructor> => {
+    try {
+        return await apiGet<ProjectConstructor>(`/constructor/${id}/`);
+    } catch (error) {
+        console.error('Failed to load project constructor:', error);
+        throw new Error('Failed to load project');
+    }
+};
+
+/**
+ * Get public project constructor by hash
+ */
+export const getPublicProject = async (hash: string): Promise<ProjectConstructor> => {
+    try {
+        return await apiGet<ProjectConstructor>(`/standalone/${hash}/`);
+    } catch (error) {
+        console.error('Failed to load public project:', error);
+        throw new Error('Failed to load public project');
+    }
+};
+
 export const getPublicProjectConstructor = async (
     publicToken: string
 ): Promise<ProjectConstructor> => {
@@ -89,6 +113,7 @@ export const getPublicProjectConstructor = async (
             }
         );
     } catch (error) {
+        console.error('Failed to load public project:', error);
         throw new Error('Failed to load public project');
     }
 };
@@ -105,6 +130,7 @@ export const getPublicLayerData = async (
             }
         });
     } catch (error) {
+        console.error('Failed to load public layer data:', error);
         throw new Error('Failed to load public layer data');
     }
 };
@@ -112,7 +138,7 @@ export const getPublicLayerData = async (
 // Export default as object with all methods
 const projectService = {
     getProjects,
-    getProject,
+    getProjectDetails,
     createProject,
     updateProject,
     deleteProject,
@@ -121,6 +147,8 @@ const projectService = {
     getProjectConstructor,
     getStandaloneProject,
     getPublicProjectConstructor,
-    getPublicLayerData
+    getPublicLayerData,
+    getProject,
+    getPublicProject
 };
 export default projectService;

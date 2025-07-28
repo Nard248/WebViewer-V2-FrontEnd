@@ -31,6 +31,25 @@ export const getLayerData = (
 };
 
 /**
+ * Get layer features for public access
+ */
+export const getPublicLayerFeatures = async (
+    layerId: number,
+    publicToken: string
+): Promise<FeatureCollection> => {
+    try {
+        return await apiGet<FeatureCollection>(`/data/${layerId}/`, {
+            headers: {
+                'X-Public-Token': publicToken
+            }
+        });
+    } catch (error) {
+        console.error(`Failed to load public layer ${layerId}:`, error);
+        return { type: 'FeatureCollection', features: [] };
+    }
+};
+
+/**
  * Get map tools with pagination and filtering
  */
 export const getMapTools = (
@@ -103,6 +122,7 @@ export const updateProjectTools = (
 
 const mapService = {
     getLayerData,
+    getPublicLayerFeatures,
     getMapTools,
     getMapTool,
     getMapToolCode,
