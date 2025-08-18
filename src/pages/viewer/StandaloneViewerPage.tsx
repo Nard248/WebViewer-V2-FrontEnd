@@ -790,7 +790,7 @@ const createWhiteTileLayer = (): L.TileLayer => {
             map.getPane('overlayPane')!.style.zIndex = '400';
             map.getPane('markerPane')!.style.zIndex = '600';
 
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            L.control.zoom({ position: 'topleft' }).addTo(map);
 
             // Track zoom changes
             map.on('zoomend', () => {
@@ -1383,13 +1383,9 @@ const createWhiteTileLayer = (): L.TileLayer => {
                             text-shadow: -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white;
                             text-align: center;
                             pointer-events: auto;
-                            cursor: pointer;
                             padding: 0;
-                            margin: 0;
                             white-space: nowrap;
-                            color: #333;
-                            transition: all 0.2s ease;
-                            width: ${approximateWidth}px;
+                            width: auto;
                         " 
                         onmouseover="this.style.textShadow='-2px -2px 0 white, 2px -2px 0 white, -2px 2px 0 white, 2px 2px 0 white'; this.style.transform='scale(1.1)'" 
                         onmouseout="this.style.textShadow='-1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white'; this.style.transform='scale(1)'"
