@@ -113,7 +113,7 @@ export const createCBRSPopupHTML = (licenses: CBRSLicense[], countyName: string)
         </style>
 
         <div class="cbrs-popup-container-${popupId}">
-            <button class="cbrs-copy-btn-${popupId}" onclick="copyCBRSContent_${popupId}()">Copy</button>
+<button class="cbrs-copy-btn-${popupId}" onclick="let t='CBRS PAL License Holders\\nCounty: ${countyName}\\n\\n';if(${licenses.length}>0){t+='Channel\\tCounty\\tBidder\\n';t+='${licenses.map(l=>`${l.channel}\\t${l.county_name}\\t${l.bidder}`).join(`\\n`)}';}else{t+='No CBRS licenses found for this county.';}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>{const b=document.querySelector('.cbrs-copy-btn-${popupId}');if(b){const o=b.textContent;b.textContent='Copied!';setTimeout(()=>{b.textContent=o;},2000);}}).catch(e=>{console.error('Failed to copy:',e);});}">Copy</button>
             <div class="cbrs-header-${popupId}" title="CBRS PAL License Holders">CBRS PAL License Holders</div>
 
             ${licenses.length > 0 ? `
@@ -129,34 +129,5 @@ export const createCBRSPopupHTML = (licenses: CBRSLicense[], countyName: string)
                 <div class="no-licenses-${popupId}">No CBRS licenses found for this county.</div>
             `}
         </div>
-
-        <script>
-        function copyCBRSContent_${popupId}() {
-            let textContent = 'CBRS PAL License Holders\\n';
-            textContent += 'County: ${countyName}\\n\\n';
-
-            if (${licenses.length} > 0) {
-                textContent += 'Channel\\tCounty\\tBidder\\n';
-                textContent += '${licenses.map(l => `${l.channel}\\t${l.county_name}\\t${l.bidder}`).join('\\n')}';
-            } else {
-                textContent += 'No CBRS licenses found for this county.';
-            }
-
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(textContent).then(() => {
-                    const btn = document.querySelector('.cbrs-copy-btn-${popupId}');
-                    if (btn) {
-                        const originalText = btn.textContent;
-                        btn.textContent = 'Copied!';
-                        setTimeout(() => {
-                            btn.textContent = originalText;
-                        }, 2000);
-                    }
-                }).catch(err => {
-                    console.error('Failed to copy:', err);
-                });
-            }
-        }
-        </script>
     `;
 };
