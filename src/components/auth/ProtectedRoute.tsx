@@ -43,7 +43,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
 
     // Check admin access if required
-    if (adminOnly && user && !user.is_staff) {
+    if (adminOnly && user && !user.is_admin) {
         return (
             <Box
                 display="flex"
