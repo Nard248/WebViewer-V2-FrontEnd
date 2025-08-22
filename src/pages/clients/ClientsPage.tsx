@@ -8,6 +8,8 @@ import DeleteClientDialog from './DeleteClientDialog';
 import ClientUpsertDialog from './ClientUpsertDialog';
 import { Client, ClientCreate, ClientUpdate } from '../../types';
 
+import { useNavigate } from 'react-router-dom';
+
 const ClientsPage: FC = () => {
     const [clients, setClients] = useState<Client[]>([]);
     const [sortConfig, setSortConfig] = useState<{ key: keyof Client; direction: 'asc' | 'desc' } | null>(null);
@@ -51,6 +53,10 @@ const ClientsPage: FC = () => {
         setOpenCreateDialog(true);
     };
 
+    const navigate = useNavigate();
+    const handleViewUsers = (id: number) => {
+        navigate(`/clients/${id}/users`);
+    };
 
     const handleDeleteClick = (client: Client) => {
         setClientToDelete(client);
@@ -125,6 +131,7 @@ const ClientsPage: FC = () => {
                 onSort={handleSort}
                 onEdit={handleEditClient}
                 onDelete={handleDeleteClick}
+                onViewUsers={handleViewUsers}
             />
 
             <DeleteClientDialog
