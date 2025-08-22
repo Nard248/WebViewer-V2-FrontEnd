@@ -74,11 +74,10 @@ const ControlContent = styled(Box)({
     position: 'relative',
 
     '& .MuiFormControlLabel-root': {
-        margin: '2px 0',
         width: '100%',
     },
     '& .MuiCheckbox-root, & .MuiRadio-root': {
-        padding: '2px 8px',
+        padding: '2px',
         color: '#333',
         '&.Mui-checked': {
             color: '#333',
@@ -557,13 +556,15 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                                                                         <Typography
                                                                             sx={{
-                                                                                fontSize: '13px',
+                                                                                fontSize: '10.83px',
                                                                                 color: (isTowerLayer && isChecked && hiddenByZoom)
                                                                                     ? '#999'
                                                                                     : isChecked
                                                                                         ? '#333'
                                                                                         : '#333',
-                                                                                fontStyle: (isTowerLayer && isChecked && hiddenByZoom) ? 'italic' : 'normal'
+                                                                                fontStyle: (isTowerLayer && isChecked && hiddenByZoom) ? 'italic' : 'normal',
+                                                                                fontFamily: '"Helvetica Neue", Arial, Helvetica, sans-serif',
+                                                                                lineHeight: '1.5',
                                                                             }}
                                                                         >
                                                                             {layer.name}
