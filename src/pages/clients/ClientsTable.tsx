@@ -19,9 +19,10 @@ interface Props {
 	onSort: (key: keyof Client) => void;
 	onEdit: (id: number) => void;
 	onDelete: (client: Client) => void;
+	onViewUsers: (id: number) => void;
 }
 
-const ClientsTable: FC<Props> = ({ clients, sortConfig, onSort, onEdit, onDelete }) => {
+const ClientsTable: FC<Props> = ({ clients, sortConfig, onSort, onEdit, onDelete, onViewUsers }) => {
 	return (
 		<TableContainer component={Paper}>
 			<Table>
@@ -59,7 +60,7 @@ const ClientsTable: FC<Props> = ({ clients, sortConfig, onSort, onEdit, onDelete
 							<TableCell>{client.is_active ? 'Active' : 'Inactive'}</TableCell>
 							<TableCell>{client.user_count}</TableCell>
 							<TableCell>
-								<IconButton onClick={() => {}} aria-label="users" title='View Users'>
+								<IconButton onClick={() => onViewUsers(client.id)} aria-label="users" title='View Users'>
 									<FontAwesomeIcon icon={faUsers} />
 								</IconButton>
 								<IconButton onClick={() => onEdit(client.id)} aria-label="edit" title='Edit Client'>

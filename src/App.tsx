@@ -31,6 +31,7 @@ import LayerEditPage from './pages/layers/LayerEditPage';
 import ClientsPage from './pages/clients/ClientsPage';
 import ClientCreatePage from './pages/clients/ClientCreatePage';
 import ClientEditPage from './pages/clients/ClientEditPage';
+import UsersPage from './pages/clients/users/UsersPage.tsx';
 
 // Settings
 import SettingsPage from './pages/settings/SettingsPage';
@@ -120,6 +121,7 @@ function App() {
                             <Route path="clients" element={<ProtectedRoute component={ClientsPage} adminOnly={true} />} />
                             <Route path="clients/create" element={<ProtectedRoute component={ClientCreatePage} adminOnly={true} />} />
                             <Route path="clients/:id/edit" element={<ProtectedRoute component={ClientEditPage} adminOnly={true} />} />
+                            <Route path="clients/:id/users" element={<ProtectedRoute component={UsersPage} adminOnly={true} />} />
 
                             {/* Settings */}
                             <Route path="settings" element={<SettingsPage />} />
