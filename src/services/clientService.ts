@@ -13,6 +13,7 @@ import {
 } from '../types';
 import { User } from '../types';
 import { PaginatedResponse } from '../types';
+import { UserCreate, UserUpdate } from '../types/client-users.types';
 
 /**
  * Get clients with pagination and filtering
@@ -58,6 +59,29 @@ export const deleteClient = (id: number): Promise<void> => {
 export const getClientUsers = (id: number): Promise<User[]> => {
     return apiGet<User[]>(`/clients/${id}/users/`);
 };
+
+// TODO: Create Backend Code to handle POST, PUT, DELETE
+/**
+ * Create a new client user
+ */
+export const createClientUser = (clientId: number, data: UserCreate): Promise<User> => {
+    return apiPost<User>(`/clients/${clientId}/add_user/`, data);
+  };  
+
+/**
+ * Update a client user
+ */
+export const updateClientUser = (clientId: number, userId: number, data: UserUpdate): Promise<User> => {
+  return apiPut<User>(`/clients/${clientId}/users/${userId}/`, data);
+};
+
+/**
+ * Delete a client user
+ */
+export const deleteClientUser = (clientId: number, userId: number): Promise<void> => {
+  return apiDelete<void>(`/clients/${clientId}/users/${userId}/`);
+};
+
 
 /**
  * Get client projects
