@@ -10,6 +10,7 @@ import { createTowerPopupHTML } from '../../components/viewer/EnhancedTowerPopup
 import { getTowerCompanyFromLayerName } from '../../components/viewer/FrontendAntennaBufferSystem';
 import { createCountyLabelsLayer } from '../../utils/viewer/countyLabels';
 import { CBRSLicense } from '../../services/cbrsService';
+import { useLazyLayerLoader } from './useLazyLayerLoader';
 
 export const useLayerVisibility = (
     mapRef: React.MutableRefObject<L.Map | null>,
@@ -25,6 +26,11 @@ export const useLayerVisibility = (
     getLayerNameById: (layerId: number) => string,
     setVisibleLayers: React.Dispatch<React.SetStateAction<Set<number>>>
 ) => {
+    // Use the lazy layer loader for on-demand loading
+    const { loadLayerData, loadingLayers } = useLazyLayerLoader(false);
+    
+    // Return the loading layers for the loading indicator
+    const getLoadingLayers = () => loadingLayers;
     useEffect(() => {
         if (!mapRef.current || !projectData || loading || !allLayersLoaded) return;
 
@@ -131,10 +137,28 @@ export const useLayerVisibility = (
                     if (visibleLayers.has(-1) && mapRef.current) mapRef.current.addLayer(mapLayer);
                     return;
                 } else {
+                    // First check if the layer is already in memory
                     const cachedData = layerDataCache.getLayerData(layerInfo.id);
-                    if (cachedData) data = cachedData.data;
-                    else if (fallbackLayerData[layerInfo.id]) data = fallbackLayerData[layerInfo.id];
-                    else return;
+                    if (cachedData) {
+                        data = cachedData.data;
+                    } 
+                    // Then check fallback data from initial load
+                    else if (fallbackLayerData[layerInfo.id]) {
+                        data = fallbackLayerData[layerInfo.id];
+                    }
+                    // If not found, use lazy loading to fetch it on demand
+                    else if (visibleLayers.has(layerInfo.id)) {
+                        try {
+                            // Only load if the layer is actually visible
+                            data = await loadLayerData(layerInfo.id, layerInfo.name);
+                        } catch (error) {
+                            console.error(`Failed to lazy load layer ${layerInfo.name}:`, error);
+                            return;
+                        }
+                    } else {
+                        // Skip loading invisible layers
+                        return;
+                    }
                 }
 
                 if (!data.features || data.features.length === 0) return;
@@ -282,6 +306,10 @@ export const useLayerVisibility = (
 
         updateLayerVisibility();
     }, [visibleLayers, projectData, loading, allLayersLoaded, cbrsLicenses, selectedTowers]);
+    
+    return {
+        getLoadingLayers
+    };
 };
 
 

@@ -17,6 +17,7 @@ import '../../styles/standalone-viewer.css';
 import { selectedTowersManager, SelectedTower } from '../../components/viewer/SelectedTowersManager';
 import { useAuth } from '../../context/AuthContext';
 import ZoomHintsOverlay from '../../components/viewer/ZoomHintsOverlay';
+import LayerLoadingIndicator from '../../components/viewer/LayerLoadingIndicator';
 import { useBufferManager } from '../../hooks/viewer/useBufferManager';
 import { useZoomVisibility } from '../../hooks/viewer/useZoomVisibility';
 import { useBodyClass } from '../../hooks/viewer/useBodyClass';
@@ -153,7 +154,7 @@ const StandaloneViewerPage: React.FC = () => {
     useBasemapSwitcher(mapRef, projectData, loading, activeBasemap, basemapLayersRef);
     
     // Use layer visibility hook to handle layer creation and visibility
-    useLayerVisibility(
+    const { getLoadingLayers } = useLayerVisibility(
         mapRef,
         projectData,
         loading,
@@ -256,6 +257,12 @@ const StandaloneViewerPage: React.FC = () => {
                 />
 
                 <ZoomHintsOverlay zoomHints={zoomHints} currentZoom={currentZoom} />
+                
+                {/* Show loading indicator for layers being loaded on-demand */}
+                {getLoadingLayers && <LayerLoadingIndicator 
+                    loadingLayers={getLoadingLayers()} 
+                    getLayerNameById={getLayerNameById} 
+                />}
 
                 {projectData && (
                     <StandaloneLayerControl
