@@ -123,7 +123,7 @@ export const getPublicLayerData = async (
     publicToken: string
 ): Promise<FeatureCollection> => {
     try {
-        return await apiGet<FeatureCollection>(`/data/${layerId}/`, {
+        return await apiGet<FeatureCollection>(`/data-fast/${layerId}/`, {
             headers: {
                 'X-Public-Token': publicToken,
                 Origin: window.location.origin

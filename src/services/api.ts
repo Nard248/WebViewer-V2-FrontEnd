@@ -8,7 +8,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://webviewerv2ba
 const API_TIMEOUT = 30000000; // 30 seconds
 
 // Debug flag - set to true during development
-const DEBUG = true;
+const DEBUG = false;
 
 /**
  * Base axios instance configured for API requests

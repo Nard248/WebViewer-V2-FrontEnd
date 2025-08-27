@@ -76,7 +76,7 @@ export const getLayerData = (
     params: LayerDataParams = {}
 ): Promise<FeatureCollection> => {
     const queryParams = createQueryParams(params);
-    return apiGet<FeatureCollection>(`/data/${id}/?${queryParams.toString()}`);
+    return apiGet<FeatureCollection>(`/data-fast/${id}/?${queryParams.toString()}`);
 };
 
 /**

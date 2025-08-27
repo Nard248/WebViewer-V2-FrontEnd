@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { mapService } from '../../services';
 import { layerDataCache } from '../../utils/LayerDataCache';
+import { optimizedGet, getOptimalBatchSize } from '../../utils/requestOptimizer';
 
 /**
  * Custom hook for lazy loading layer data when needed
@@ -49,11 +49,20 @@ export const useLazyLayerLoader = (
 
             // First, fetch chunk 1 to determine total chunks
             try {
-                const firstChunkData = await mapService.getLayerData(layerId, {
+                const url = `/data-fast/${layerId}/`;
+                const params = {
                     chunk_id: 1,
                     bounds: '-180,-90,180,90',
                     zoom: 1
-                }, requestOptions);
+                };
+                
+                const config = {
+                    params,
+                    ...requestOptions
+                };
+                
+                // Use optimized request with high priority for first chunk
+                const firstChunkData = await optimizedGet(url, config, 2);
 
                 if (firstChunkData.features && firstChunkData.features.length > 0) {
                     allFeatures.push(...firstChunkData.features);
@@ -63,9 +72,10 @@ export const useLazyLayerLoader = (
                         let nextChunkId = firstChunkData.chunk_info.next_chunk;
                         
                         while (nextChunkId > 0) {
-                            // Prepare a batch of chunk requests (up to 5 at a time)
+                            // Prepare a batch of chunk requests with dynamic batch size
                             const chunksToLoad = [];
-                            const MAX_PARALLEL_CHUNKS = 5;
+                            // Use adaptive batch sizing based on network conditions
+                            const MAX_PARALLEL_CHUNKS = Math.min(getOptimalBatchSize(), 15);
                             
                             for (let i = 0; i < MAX_PARALLEL_CHUNKS && nextChunkId > 0; i++) {
                                 chunksToLoad.push(nextChunkId);
@@ -74,14 +84,24 @@ export const useLazyLayerLoader = (
                             
                             if (chunksToLoad.length === 0) break;
                             
-                            // Load chunks in parallel
-                            const chunkPromises = chunksToLoad.map(chunkId => 
-                                mapService.getLayerData(layerId, {
+                            // Load chunks in parallel with decreasing priority for later chunks
+                            const chunkPromises = chunksToLoad.map((chunkId, index) => {
+                                const url = `/data-fast/${layerId}/`;
+                                const params = {
                                     chunk_id: chunkId,
                                     bounds: '-180,-90,180,90',
                                     zoom: 1
-                                }, requestOptions)
-                            );
+                                };
+                                
+                                const config = {
+                                    params,
+                                    ...requestOptions
+                                };
+                                
+                                // Gradually decrease priority for chunks later in the sequence
+                                const chunkPriority = 3 + Math.min(3, Math.floor(index / 3));
+                                return optimizedGet(url, config, chunkPriority);
+                            });
                             
                             try {
                                 const chunkResults = await Promise.all(chunkPromises);

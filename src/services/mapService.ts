@@ -27,7 +27,7 @@ export const getLayerData = (
         ...options
     };
 
-    return apiGet<FeatureCollection>(`/data/${layerId}/`, requestOptions);
+    return apiGet<FeatureCollection>(`/data-fast/${layerId}/`, requestOptions);
 };
 
 /**
@@ -38,7 +38,7 @@ export const getPublicLayerFeatures = async (
     publicToken: string
 ): Promise<FeatureCollection> => {
     try {
-        return await apiGet<FeatureCollection>(`/data/${layerId}/`, {
+        return await apiGet<FeatureCollection>(`/data-fast/${layerId}/`, {
             headers: {
                 'X-Public-Token': publicToken
             }

@@ -54,7 +54,7 @@ export const ENDPOINTS = {
 
     // Layer Data
     DATA: {
-        GET: (layerId: number) => `${BASE_API_PATH}/data/${layerId}/`,
+        GET: (layerId: number) => `${BASE_API_PATH}/data-fast/${layerId}/`,
     },
 
     // Features

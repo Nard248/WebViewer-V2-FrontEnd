@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { projectService, mapService } from '../../services';
+import { projectService } from '../../services';
 import { cbrsService, CBRSLicense } from '../../services/cbrsService';
 import { layerDataCache } from '../../utils/LayerDataCache';
+import { optimizedGet, getOptimalBatchSize, cancelAllRequests } from '../../utils/requestOptimizer';
 
 export interface UseProjectLoaderResult {
     projectData: any | null;
@@ -48,21 +49,28 @@ export const useProjectLoader = (
         const loadLayerChunk = async (
             layerId: number, 
             chunkId: number, 
-            requestOptions: any
+            requestOptions: any,
+            priority: number = 5
         ): Promise<{features: any[], nextChunk: number | null}> => {
             try {
-                const chunkData = await mapService.getLayerData(
-                    layerId, 
-                    {
-                        chunk_id: chunkId,
-                        bounds: '-180,-90,180,90',
-                        zoom: 1
-                    }, 
-                    {
-                        ...requestOptions,
-                        signal: abortController.signal
-                    }
-                );
+                // Use optimized request with priority
+                const url = `/data-fast/${layerId}/`;
+                const params = {
+                    chunk_id: chunkId,
+                    bounds: '-180,-90,180,90',
+                    zoom: 1
+                };
+                
+                const config = {
+                    params,
+                    ...requestOptions,
+                    signal: abortController.signal
+                };
+                
+                // Use optimized request with priority based on layer visibility and chunk number
+                // First chunks get higher priority (lower number)
+                const chunkPriority = chunkId === 1 ? priority - 2 : priority;
+                const chunkData = await optimizedGet(url, config, chunkPriority);
                 
                 const features = chunkData.features || [];
                 const nextChunk = chunkData.chunk_info?.next_chunk || null;
@@ -92,8 +100,12 @@ export const useProjectLoader = (
                     return { layerId, data: cachedData.data };
                 }
                 
+                // Determine priority based on layer visibility
+                const isVisible = layerInfo.is_visible || layerInfo.is_visible_by_default;
+                const layerPriority = isVisible ? 3 : 6; // Lower number = higher priority
+                
                 // First, fetch chunk 1 to determine total chunks
-                const firstChunkResult = await loadLayerChunk(layerId, 1, requestOptions);
+                const firstChunkResult = await loadLayerChunk(layerId, 1, requestOptions, layerPriority);
                 let allFeatures = [...firstChunkResult.features];
                 
                 // If there are more chunks, load them in parallel
@@ -108,9 +120,10 @@ export const useProjectLoader = (
                     let nextChunkId = firstChunkResult.nextChunk;
                     
                     while (nextChunkId > 0 && mounted) {
-                        // Prepare a batch of chunk requests (up to 5 at a time)
+                        // Prepare a batch of chunk requests with dynamic batch size
                         chunksToLoad = [];
-                        const MAX_PARALLEL_CHUNKS = 5;
+                        // Use adaptive batch sizing based on network conditions
+                        const MAX_PARALLEL_CHUNKS = Math.min(getOptimalBatchSize(), 15);
                         
                         for (let i = 0; i < MAX_PARALLEL_CHUNKS && nextChunkId > 0; i++) {
                             chunksToLoad.push(nextChunkId);
@@ -119,10 +132,13 @@ export const useProjectLoader = (
                         
                         if (chunksToLoad.length === 0) break;
                         
-                        // Load chunks in parallel
-                        const chunkPromises = chunksToLoad.map(chunkId => 
-                            loadLayerChunk(layerId, chunkId, requestOptions)
-                        );
+                        // Load chunks in parallel with decreasing priority for later chunks
+                        const chunkPromises = chunksToLoad.map((chunkId, index) => {
+                            // Gradually decrease priority for chunks later in the sequence
+                            // This ensures earlier chunks load first if network is constrained
+                            const chunkPriority = layerPriority + Math.min(3, Math.floor(index / 3));
+                            return loadLayerChunk(layerId, chunkId, requestOptions, chunkPriority);
+                        });
                         
                         try {
                             const chunkResults = await Promise.all(chunkPromises);
@@ -200,14 +216,25 @@ export const useProjectLoader = (
             setLoadingProgress(30);
             
             // Create a batch of promises to load layers in parallel
-            // Process in batches to avoid overwhelming the server
-            const BATCH_SIZE = 10; // Adjust based on server capacity
+            // Process in batches with adaptive sizing based on network conditions
+            const BATCH_SIZE = Math.min(getOptimalBatchSize(), 15); // Dynamic batch size
             
             for (let i = 0; i < allLayers.length; i += BATCH_SIZE) {
                 if (!mounted) break;
                 
                 const batch = allLayers.slice(i, i + BATCH_SIZE);
-                const batchPromises = batch.map(layerInfo => 
+                
+                // Sort the batch by priority - visible layers first
+                const sortedBatch = [...batch].sort((a, b) => {
+                    // Prioritize visible layers
+                    const aVisible = a.is_visible || a.is_visible_by_default;
+                    const bVisible = b.is_visible || b.is_visible_by_default;
+                    if (aVisible && !bVisible) return -1;
+                    if (!aVisible && bVisible) return 1;
+                    return 0;
+                });
+                
+                const batchPromises = sortedBatch.map(layerInfo => 
                     loadCompleteLayer(layerInfo, requestOptions)
                 );
                 
@@ -358,6 +385,8 @@ export const useProjectLoader = (
         return () => { 
             mounted = false; 
             abortController.abort();
+            // Cancel any pending optimized requests to free up resources
+            cancelAllRequests();
         };
     }, [projectIdentifier, isPublicAccess, hash]);
 

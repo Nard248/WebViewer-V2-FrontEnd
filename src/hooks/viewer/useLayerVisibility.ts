@@ -5,7 +5,7 @@ import { zoomVisibilityManager } from '../../components/viewer/ZoomVisibilityMan
 import { selectedTowersManager, SelectedTower } from '../../components/viewer/SelectedTowersManager';
 import { layerDataCache } from '../../utils/LayerDataCache';
 import { getClusteringOptions, hasClusteringEnabled, isPointLayer } from '../../utils/viewer/layerHelpers';
-import { createClusterIcon, createTowerIcon } from '../../utils/viewer/icons';
+import iconPool from '../../utils/viewer/iconPool';
 import { createTowerPopupHTML } from '../../components/viewer/EnhancedTowerPopupSystem';
 import { getTowerCompanyFromLayerName } from '../../components/viewer/FrontendAntennaBufferSystem';
 import { createCountyLabelsLayer } from '../../utils/viewer/countyLabels';
@@ -179,7 +179,7 @@ export const useLayerVisibility = (
                         spiderfyOnMaxZoom: clusteringOptions.spiderfyOnMaxZoom !== false,
                         removeOutsideVisibleBounds: clusteringOptions.removeOutsideVisibleBounds || false,
                         maxClusterRadius: clusteringOptions.maxClusterRadius || 80,
-                        iconCreateFunction: createClusterIcon,
+                        iconCreateFunction: iconPool.getClusterIcon,
                         ...clusteringOptions
                     });
                     data.features.forEach((feature: any) => {
@@ -191,7 +191,7 @@ export const useLayerVisibility = (
                                 let isSelected = false;
                                 if (layerInfo.id === -1) { companyName = 'Selected'; isSelected = true; }
                                 else { companyName = getTowerCompanyFromLayerName(layerInfo.name); }
-                                const towerIcon = createTowerIcon(companyName);
+                                const towerIcon = iconPool.getTowerIcon(companyName);
                                 marker = L.marker([lat, lng], { icon: towerIcon });
                                 const popupHTML = createTowerPopupHTML(
                                     feature.properties,
@@ -217,6 +217,8 @@ export const useLayerVisibility = (
                     mapLayer = markerClusterGroup;
                 } else {
                     mapLayer = L.geoJSON(data, {
+                        // @ts-expect-error: 'renderer' is not in GeoJSONOptions type, but Leaflet supports it at runtime
+                        renderer: L.canvas(), // Use Canvas renderer for better performance with large datasets
                         style: () => ({
                             color: layerInfo.style?.color || '#3388ff',
                             weight: layerInfo.style?.weight || 2,
@@ -227,7 +229,7 @@ export const useLayerVisibility = (
                         pointToLayer: (feature, latlng) => {
                             if (isTowerLayer) {
                                 const companyName = getTowerCompanyFromLayerName(layerInfo.name);
-                                const towerIcon = createTowerIcon(companyName);
+                                const towerIcon = iconPool.getTowerIcon(companyName);
                                 return L.marker(latlng, { icon: towerIcon });
                             } else {
                                 return L.circleMarker(latlng, {
