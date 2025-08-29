@@ -37,9 +37,9 @@ export const useProjectLoader = (
     const [fallbackLayerData, setFallbackLayerData] = useState<{ [layerId: number]: any }>({});
     const [cbrsLicenses, setCbrsLicenses] = useState<CBRSLicense[]>([]);
 
-    // Track total layers and completed layers for progress calculation
-    const totalLayersRef = useRef(0);
-    const completedLayersRef = useRef(0);
+    // Track total chunks and completed chunks for progress calculation
+    const totalChunksRef = useRef(0);
+    const completedChunksRef = useRef(0);
 
     useEffect(() => {
         let mounted = true;
@@ -132,8 +132,23 @@ export const useProjectLoader = (
                             allFeatures.push(...chunkResult.features);
                         }
                         
+                        // Update chunk progress
+                        if (mounted) {
+                            completedChunksRef.current++;
+                            const progressPercent = 30 + (completedChunksRef.current / totalChunksRef.current * 65);
+                            setLoadingProgress(Math.min(95, progressPercent));
+                            setLoadingStatus(`Loaded ${completedChunksRef.current}/${totalChunksRef.current} chunks...`);
+                        }
+                        
                     } catch (error) {
                         console.error(`Error loading chunk ${chunkId} for layer ${layerId}:`, error);
+                        // Update progress even for failed chunks to avoid getting stuck
+                        if (mounted) {
+                            completedChunksRef.current++;
+                            const progressPercent = 30 + (completedChunksRef.current / totalChunksRef.current * 65);
+                            setLoadingProgress(Math.min(95, progressPercent));
+                            setLoadingStatus(`Loaded ${completedChunksRef.current}/${totalChunksRef.current} chunks...`);
+                        }
                         // Continue loading other chunks even if one fails
                     }
                 }
@@ -171,8 +186,12 @@ export const useProjectLoader = (
         const preloadAllLayerData = async (allLayers: any[]) => {
             if (allLayers.length === 0) return;
             
-            totalLayersRef.current = allLayers.length;
-            completedLayersRef.current = 0;
+            // Calculate total chunks across all layers
+            totalChunksRef.current = allLayers.reduce((total, layer) => {
+                const chunkIds = layer.data_source?.chunk_ids || [1];
+                return total + chunkIds.length;
+            }, 0);
+            completedChunksRef.current = 0;
             
             const loadedData: { [layerId: number]: any } = {};
             const requestOptions = isPublicAccess && hash ? {
@@ -183,7 +202,7 @@ export const useProjectLoader = (
             } : {};
             
             // Update loading status to show we're loading in parallel
-            setLoadingStatus(`Loading ${allLayers.length} layers in parallel...`);
+            setLoadingStatus(`Loading ${totalChunksRef.current} chunks from ${allLayers.length} layers...`);
             setLoadingProgress(30);
             
             // Create a batch of promises to load layers in parallel
@@ -220,14 +239,8 @@ export const useProjectLoader = (
                     results.forEach(({ layerId, data }) => {
                         loadedData[layerId] = data;
                         
-                        // Update progress
-                        completedLayersRef.current++;
-                        const progressPercent = 30 + (completedLayersRef.current / totalLayersRef.current * 65);
-                        
                         if (mounted) {
                             setLayerLoadProgress(prev => ({ ...prev, [layerId]: true }));
-                            setLoadingProgress(Math.min(95, progressPercent));
-                            setLoadingStatus(`Loaded ${completedLayersRef.current}/${totalLayersRef.current} layers...`);
                         }
                     });
                 } catch (error) {
