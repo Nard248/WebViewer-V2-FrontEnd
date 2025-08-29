@@ -78,6 +78,7 @@ const StandaloneViewerPage: React.FC = () => {
 
     const [preloadedLayers, setPreloadedLayers] = useState<{ [layerId: number]: L.Layer }>({});
     const [selectedTowers, setSelectedTowers] = useState<SelectedTower[]>([]);
+    const [layerFeatureCounts, setLayerFeatureCounts] = useState<{ [layerId: number]: number }>({});
 
     // Error message helper
     const getErrorMessage = () => {
@@ -166,7 +167,8 @@ const StandaloneViewerPage: React.FC = () => {
         setPreloadedLayers,
         fallbackLayerData,
         getLayerNameById,
-        setVisibleLayers
+        setVisibleLayers,
+        setLayerFeatureCounts
     );
     
     // Handle selected towers
@@ -278,6 +280,7 @@ const StandaloneViewerPage: React.FC = () => {
                         currentZoom={currentZoom}
                         selectedTowersLayer={selectedTowers.length > 0 ? selectedTowersManager.getSelectedTowersVirtualLayer() : null}
                         onSelectedTowersToggle={handleSelectedTowersToggle}
+                        layerFeatureCounts={layerFeatureCounts}
                     />
                 )}
             </Box>

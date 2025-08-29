@@ -25,7 +25,9 @@ export const useLayerVisibility = (
     setPreloadedLayers: React.Dispatch<React.SetStateAction<{ [layerId: string]: L.Layer }>>,
     fallbackLayerData: { [layerId: number]: any },
     getLayerNameById: (layerId: number) => string,
-    setVisibleLayers: React.Dispatch<React.SetStateAction<Set<number>>>
+    setVisibleLayers: React.Dispatch<React.SetStateAction<Set<number>>>,
+    // New parameter for tracking feature counts
+    setLayerFeatureCounts?: React.Dispatch<React.SetStateAction<{ [layerId: number]: number }>>
 ) => {
     // Use the lazy layer loader for on-demand loading
     const { loadLayerData, loadingLayers } = useLazyLayerLoader(false);
@@ -39,7 +41,36 @@ export const useLayerVisibility = (
             const allProjectLayers: any[] = [];
             if (projectData.layer_groups) {
                 projectData.layer_groups.forEach((group: any) => {
-                    if (group.layers) group.layers.forEach((layer: any) => allProjectLayers.push(layer));
+                    if (group.layers) {
+                        group.layers.forEach((layer: any) => {
+                            allProjectLayers.push(layer);
+                            
+                            // Extract feature counts immediately for all relevant layers
+                            if (setLayerFeatureCounts) {
+                                const isLocationLayer = (layer.layer_type_name === 'Point Layer' || layer.type === 'Point') && (
+                                    layer.name.toLowerCase().includes('location') || 
+                                    layer.name.toLowerCase().includes('locations') ||
+                                    layer.name.toLowerCase().includes('bead')
+                                );
+                                const isTowerLayer = isAntennaTowerLayer(layer.name);
+                                
+                                console.log(`🔍 Checking layer "${layer.name}": layer_type_name="${layer.layer_type_name}", type="${layer.type}", isLocationLayer=${isLocationLayer}, isTowerLayer=${isTowerLayer}`);
+                                
+                                if (isTowerLayer || isLocationLayer) {
+                                    const totalFeatures = layer.data_source?.total_features;
+                                    if (totalFeatures !== undefined) {
+                                        console.log(`🔍 Setting feature count for ${layer.name}: ${totalFeatures}`);
+                                        setLayerFeatureCounts(prev => ({
+                                            ...prev,
+                                            [layer.id]: totalFeatures
+                                        }));
+                                    } else {
+                                        console.log(`⚠️ No total_features found for ${layer.name}`, layer.data_source);
+                                    }
+                                }
+                            }
+                        });
+                    }
                 });
             }
 
@@ -116,7 +147,13 @@ export const useLayerVisibility = (
                         frontendBufferManager.toggleParentLayerBuffers(layerId, true, mapRef.current!);
                     } else if (!shouldBeVisible && isCurrentlyVisible) {
                         mapRef.current!.removeLayer(layer);
-                        frontendBufferManager.toggleParentLayerBuffers(layerId, false, mapRef.current!);
+                        // Force hide buffers to ensure they are completely removed from the map
+                        if (layerId === -1) {
+                            // For selected towers, force cleanup all buffers
+                            frontendBufferManager.forceHideBuffersForTower(layerId, mapRef.current!);
+                        } else {
+                            frontendBufferManager.toggleParentLayerBuffers(layerId, false, mapRef.current!);
+                        }
                     }
                 } else {
                     const shouldBeVisible = userWantsVisible;
@@ -129,6 +166,25 @@ export const useLayerVisibility = (
 
         const createMapLayer = async (layerInfo: any): Promise<void> => {
             try {
+                // First, check if we have pre-calculated feature count from layer metadata
+                const isLocationLayer = layerInfo.layer_type_name === 'Point Layer' && (
+                    layerInfo.name.toLowerCase().includes('location') || 
+                    layerInfo.name.toLowerCase().includes('locations') ||
+                    layerInfo.name.toLowerCase().includes('bead')
+                );
+                const isTowerLayer = isAntennaTowerLayer(layerInfo.name) || layerInfo.id === -1;
+                
+                // Use pre-calculated total_features if available
+                if (setLayerFeatureCounts && (isTowerLayer || isLocationLayer)) {
+                    const totalFeatures = layerInfo.data_source?.total_features;
+                    if (totalFeatures !== undefined) {
+                        setLayerFeatureCounts(prev => ({
+                            ...prev,
+                            [layerInfo.id]: totalFeatures
+                        }));
+                    }
+                }
+
                 let data = null as any;
                 if (layerInfo.id === -1) {
                     const virtual = selectedTowersManager.getSelectedTowersVirtualLayer();
@@ -164,14 +220,35 @@ export const useLayerVisibility = (
 
                 if (!data.features || data.features.length === 0) return;
 
-                const isTowerLayer = isAntennaTowerLayer(layerInfo.name) || layerInfo.id === -1;
+                const isTowerLayerHere = isAntennaTowerLayer(layerInfo.name) || layerInfo.id === -1;
                 const isCountyLayer = layerInfo.name === 'County Outline' || layerInfo.id === 794;
+                const isPointLayerType = layerInfo.layer_type_name === 'Point Layer';
+
+                // Track feature count for Locations and Antenna layers (fallback to counting loaded features)
+                const isLocationLayerHere = isPointLayerType && (
+                    layerInfo.name.toLowerCase().includes('location') || 
+                    layerInfo.name.toLowerCase().includes('locations') ||
+                    layerInfo.name.toLowerCase().includes('bead')
+                );
+                if (setLayerFeatureCounts && (isTowerLayerHere || isLocationLayerHere)) {
+                    // Only count loaded features if we don't already have the total from metadata
+                    setLayerFeatureCounts(prev => {
+                        // Don't overwrite if we already have a count from total_features
+                        if (prev[layerInfo.id] !== undefined) {
+                            return prev;
+                        }
+                        return {
+                            ...prev,
+                            [layerInfo.id]: data.features.length
+                        };
+                    });
+                }
 
                 let mapLayer: L.Layer;
                 const shouldCluster = isPointLayer(layerInfo) && hasClusteringEnabled(layerInfo);
                 const featureCount = data.features.length;
                 // Much lower threshold for antenna towers to improve performance
-                const optimizationThreshold = isTowerLayer ? 100 : DEFAULT_VIEWPORT_CONFIG.maxMarkersWithoutOptimization;
+                const optimizationThreshold = isTowerLayerHere ? 100 : DEFAULT_VIEWPORT_CONFIG.maxMarkersWithoutOptimization;
                 const useViewportOptimization = !shouldCluster && isPointLayer(layerInfo) && featureCount > optimizationThreshold;
                 
                 console.log(`🎯 Layer ${layerInfo.name}: ${featureCount} features, clustering: ${shouldCluster}, viewport optimization: ${useViewportOptimization}`);
@@ -179,7 +256,7 @@ export const useLayerVisibility = (
                 if (useViewportOptimization) {
                     // Use viewport-based optimization for large non-clustered point layers
                     const createMarker = (feature: any, latlng: L.LatLng): L.Marker | L.CircleMarker => {
-                        if (isTowerLayer && feature.properties) {
+                        if (isTowerLayerHere && feature.properties) {
                             let companyName: string;
                             let isSelected = false;
                             if (layerInfo.id === -1) { 
@@ -216,9 +293,9 @@ export const useLayerVisibility = (
                         data.features,
                         createMarker,
                         {
-                            maxMarkersWithoutOptimization: isTowerLayer ? 100 : 5000,
-                            bufferMultiplier: isTowerLayer ? 1.3 : 1.5,
-                            minZoomForOptimization: isTowerLayer ? 11 : 10,
+                            maxMarkersWithoutOptimization: isTowerLayerHere ? 100 : 5000,
+                            bufferMultiplier: isTowerLayerHere ? 1.3 : 1.5,
+                            minZoomForOptimization: isTowerLayerHere ? 11 : 10,
                             useCanvasForDenseLayers: featureCount > 50000,
                             canvasThreshold: 50000
                         }
@@ -262,7 +339,7 @@ export const useLayerVisibility = (
                         if (feature.geometry && feature.geometry.type === 'Point') {
                             const [lng, lat] = feature.geometry.coordinates;
                             let marker: L.Marker | L.CircleMarker;
-                            if (isTowerLayer && feature.properties) {
+                            if (isTowerLayerHere && feature.properties) {
                                 let companyName: string;
                                 let isSelected = false;
                                 if (layerInfo.id === -1) { companyName = 'Selected'; isSelected = true; }
@@ -300,10 +377,11 @@ export const useLayerVisibility = (
                             weight: layerInfo.style?.weight || 2,
                             opacity: layerInfo.style?.opacity || 1,
                             fillColor: layerInfo.style?.fillColor || layerInfo.style?.color || '#3388ff',
-                            fillOpacity: layerInfo.style?.fillOpacity || 0.2
+                            // Remove fill for county/state outline layers
+                            fillOpacity: isCountyLayer ? 0 : (layerInfo.style?.fillOpacity || 0.2)
                         }),
                         pointToLayer: (feature, latlng) => {
-                            if (isTowerLayer) {
+                            if (isTowerLayerHere) {
                                 const companyName = getTowerCompanyFromLayerName(layerInfo.name);
                                 const towerIcon = iconPool.getTowerIcon(companyName);
                                 return L.marker(latlng, { icon: towerIcon });
@@ -319,7 +397,7 @@ export const useLayerVisibility = (
                             }
                         },
                         onEachFeature: (feature, leafletLayer) => {
-                            if (feature.properties && isTowerLayer) {
+                            if (feature.properties && isTowerLayerHere) {
                                 const popupHTML = createTowerPopupHTML(
                                     feature.properties,
                                     getTowerCompanyFromLayerName(layerInfo.name),
@@ -336,17 +414,19 @@ export const useLayerVisibility = (
                 }
 
                 const shouldBeVisible_created = visibleLayers.has(layerInfo.id);
-                if (isTowerLayer && layerInfo.id !== -1) {
+                if (isTowerLayerHere && layerInfo.id !== -1) {
                     zoomVisibilityManager.registerLayer(
                         layerInfo.id,
                         layerInfo.name,
-                        isTowerLayer,
+                        isTowerLayerHere,
                         shouldBeVisible_created
                     );
                 }
 
-                if (isTowerLayer) {
-                    const companyName = layerInfo.id === -1 ? 'Selected' : getTowerCompanyFromLayerName(layerInfo.name);
+                if (isTowerLayerHere && layerInfo.id !== -1) {
+                    // Only generate buffers for regular tower layers, not selected towers
+                    // Selected towers buffers are handled by SelectedTowersManager
+                    const companyName = getTowerCompanyFromLayerName(layerInfo.name);
                     frontendBufferManager.generateBuffersFromTowerData(
                         data,
                         layerInfo.id,
@@ -365,7 +445,7 @@ export const useLayerVisibility = (
                 zoomVisibilityManager.registerLayer(
                     layerInfo.id,
                     layerInfo.name,
-                    isTowerLayer,
+                    isTowerLayerHere,
                     shouldBeVisible,
                     customMinZoom
                 );

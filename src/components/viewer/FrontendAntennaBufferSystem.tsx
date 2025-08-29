@@ -57,6 +57,12 @@ class FrontendAntennaBufferManager {
         companyName: string,
         map?: L.Map
     ): VirtualBufferLayer[] {
+        // ✅ CRITICAL FIX: Clean up existing buffers before creating new ones
+        if (this.towerBufferRelationships.has(parentLayerId) && map) {
+            console.log(`Cleaning up existing buffers for tower layer ${parentLayerId} before regenerating`);
+            this.removeBuffersForTower(parentLayerId, map);
+        }
+
         const createdBuffers: VirtualBufferLayer[] = [];
 
         defaultBufferConfig.distances.forEach(distance => {

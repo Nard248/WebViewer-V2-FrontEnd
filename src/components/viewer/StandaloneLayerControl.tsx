@@ -30,6 +30,8 @@ interface StandaloneLayerControlProps {
     // Selected towers props
     selectedTowersLayer?: SelectedTowersVirtualLayer | null;
     onSelectedTowersToggle?: (isVisible: boolean) => void;
+    // Feature counts for layers
+    layerFeatureCounts?: { [layerId: number]: number };
 }
 
 
@@ -269,7 +271,8 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                                                            zoomHints = [],
                                                                            currentZoom = 7,
                                                                            selectedTowersLayer,
-                                                                           onSelectedTowersToggle}) => {
+                                                                           onSelectedTowersToggle,
+                                                                           layerFeatureCounts = {}}) => {
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
@@ -367,6 +370,26 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
     const isAntennaTowerLayer = (layerName: string): boolean => {
         return layerName.toLowerCase().includes('antenna locations') ||
             layerName.toLowerCase() === 'selected towers';
+    };
+
+    // Check if a layer should show feature count (Locations and Antenna layers)
+    const shouldShowFeatureCount = (layer: any): boolean => {
+        const result = isAntennaTowerLayer(layer.name) || 
+               ((layer.layer_type_name === 'Point Layer' || layer.type === 'Point') && (
+                   layer.name.toLowerCase().includes('location') || 
+                   layer.name.toLowerCase().includes('locations') ||
+                   layer.name.toLowerCase().includes('bead')
+               ));
+        console.log(`🔍 Should show feature count for "${layer.name}" (layer_type_name: ${layer.layer_type_name}, type: ${layer.type}): ${result}`);
+        return result;
+    };
+
+    // Get feature count display text
+    const getFeatureCountText = (layerId: number): string | null => {
+        const count = layerFeatureCounts[layerId];
+        console.log(`🔍 Feature count for layer ${layerId}:`, count, 'All counts:', layerFeatureCounts);
+        if (count === undefined) return null;
+        return `(${count.toLocaleString()})`;
     };
 
 
@@ -496,12 +519,25 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                 onChange={(e) => onBasemapChange(Number(e.target.value))}
                             >
                                 {projectData.basemaps.map((basemap: any) => (
-                                    <FormControlLabel
-                                        key={basemap.id}
-                                        value={basemap.id}
-                                        control={<Radio size="small" />}
-                                        label={basemap.name}
-                                    />
+                                    <LayerItem key={basemap.id}>
+                                        <FormControlLabel
+                                            value={basemap.id}
+                                            control={<Radio size="small" />}
+                                            label={
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: '10.83px',
+                                                        color: '#333',
+                                                        fontFamily: '"Helvetica Neue", Arial, Helvetica, sans-serif',
+                                                        lineHeight: '1.5',
+                                                    }}
+                                                >
+                                                    {basemap.name}
+                                                </Typography>
+                                            }
+                                            sx={{ margin: 0, flex: 1 }}
+                                        />
+                                    </LayerItem>
                                 ))}
                             </RadioGroup>
                         </>
@@ -568,6 +604,15 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                                                             }}
                                                                         >
                                                                             {layer.name}
+                                                                            {shouldShowFeatureCount(layer) && getFeatureCountText(layer.id) && (
+                                                                                <span style={{ 
+                                                                                    color: '#888', 
+                                                                                    fontWeight: 'normal',
+                                                                                    marginLeft: '4px'
+                                                                                }}>
+                                                                                    {getFeatureCountText(layer.id)}
+                                                                                </span>
+                                                                            )}
                                                                         </Typography>
                                                                         {isTowerLayer && (
                                                                             <Tooltip title={hiddenByZoom ? `Minimum zoom: ${zoomStatus.needsZoom}` : 'Zoom controlled'}>

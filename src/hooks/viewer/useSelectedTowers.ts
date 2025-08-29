@@ -45,7 +45,11 @@ export const useSelectedTowers = (
                     });
                 }
 
-                // Reset buffer visibility for selected towers
+                // Reset buffer visibility for selected towers and force cleanup
+                if (mapRef.current) {
+                    frontendBufferManager.forceHideBuffersForTower(-1, mapRef.current);
+                    frontendBufferManager.removeBuffersForTower(-1, mapRef.current);
+                }
                 setBufferVisibility(prevBuffers => {
                     const updated: Record<string, boolean> = { ...prevBuffers };
                     Object.keys(updated).forEach(id => {
@@ -73,6 +77,8 @@ export const useSelectedTowers = (
             });
             selectedTowersManager.toggleSelectedLayerVisibility(false);
             if (mapRef.current) {
+                // Force remove ALL buffers for selected towers layer, regardless of their visibility state
+                frontendBufferManager.forceHideBuffersForTower(-1, mapRef.current);
                 frontendBufferManager.removeBuffersForTower(-1, mapRef.current);
             }
             setBufferVisibility(prev => {

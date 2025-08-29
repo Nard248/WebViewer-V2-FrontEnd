@@ -230,10 +230,8 @@ export class SelectedTowersManager {
             console.log(`Added selected towers layer to map with ${this.selectedTowers.size} towers`);
         }
 
-        // Generate buffers if layer is visible
-        if (this.selectedTowersVirtualLayer.is_visible) {
-            this.generateSelectedTowerBuffers();
-        }
+        // Buffers are generated only in toggleSelectedLayerVisibility when layer becomes visible
+        // This prevents duplicate buffer generation
     }
 
 
@@ -284,8 +282,8 @@ export class SelectedTowersManager {
             const marker = L.marker([lat, lng], {
                 icon,
                 alt: `selected-tower-${tower.id}-${index}`,
-                // Add z-index to ensure visibility
-                zIndexOffset: 1000
+                // Add high z-index to ensure visibility above all other markers
+                zIndexOffset: 10000
             });
 
             // Add popup with tower information
