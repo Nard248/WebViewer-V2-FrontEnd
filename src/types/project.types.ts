@@ -18,6 +18,7 @@ export interface Project {
     map_options: MapOptions;
     max_zoom: number;
     min_zoom: number;
+    state_abbr?: string; // State abbreviation for CBRS license lookup
     created_at: string;
     updated_at: string;
     created_by_user: number;
@@ -39,6 +40,7 @@ export interface ProjectCreate {
     map_options: MapOptions;
     max_zoom: number;
     min_zoom: number;
+    state_abbr?: string; // State abbreviation for CBRS license lookup
 }
 
 /**

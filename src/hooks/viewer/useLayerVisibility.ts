@@ -451,11 +451,15 @@ export const useLayerVisibility = (
                 );
 
                 if (isCountyLayer) {
+                    console.log(`🏷️ Creating county labels layer for ${layerInfo.name} with ${cbrsLicenses.length} CBRS licenses`);
                     const labelsKey = `${layerInfo.id}_labels`;
                     const labelsLayer = createCountyLabelsLayer(layerInfo.id, data, cbrsLicenses);
                     setPreloadedLayers(prev => ({ ...prev, [labelsKey]: labelsLayer } as any));
                     const visible = visibleLayers.has(layerInfo.id);
-                    if (visible && mapRef.current) mapRef.current.addLayer(labelsLayer);
+                    if (visible && mapRef.current) {
+                        console.log(`🗺️ Adding county labels layer to map`);
+                        mapRef.current.addLayer(labelsLayer);
+                    }
                 }
             } catch (err) {
                 // eslint-disable-next-line no-console

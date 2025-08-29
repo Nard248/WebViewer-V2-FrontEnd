@@ -273,15 +273,28 @@ export const useProjectLoader = (
                 setProjectData(data);
                 setLoadingStatus('Loading CBRS data...');
 
-                const stateAbbr = (data as any)?.project?.state_abbr;
+                const stateAbbr = data?.project?.state_abbr;
+                console.log(`🌟 Project state abbreviation: ${stateAbbr}`);
+                console.log(`📊 Full project data:`, data?.project);
+                
                 if (stateAbbr) {
                     try {
                         console.log(`🗂️ Loading CBRS licenses for state: ${stateAbbr}`);
-                        console.log(`📡 CBRS URL: /api/cbrs/licenses/${stateAbbr}`);
                         const licenses = await cbrsService.getCBRSLicensesByState(stateAbbr);
-                        console.log(`✅ CBRS licenses loaded:`, licenses);
+                        console.log(`✅ CBRS licenses loaded: ${licenses.length} total licenses`);
+                        
+                        // Log unique counties with licenses
+                        const uniqueCounties = new Set(licenses.map(l => l.county_fips));
+                        console.log(`📍 Counties with licenses: ${uniqueCounties.size} unique counties`);
+                        console.log(`📋 County FIPS codes:`, Array.from(uniqueCounties));
+                        
                         setCbrsLicenses(licenses);
-                    } catch {}
+                    } catch (error) {
+                        console.error(`❌ Failed to load CBRS licenses for state ${stateAbbr}:`, error);
+                    }
+                } else {
+                    console.warn(`⚠️ No state_abbr found in project data. CBRS licenses will not be loaded.`);
+                    console.log(`📝 Available project fields:`, Object.keys(data?.project || {}));
                 }
                 setLoadingProgress(25);
 
@@ -307,7 +320,6 @@ export const useProjectLoader = (
 
                 setLoadingStatus('Pre-loading all layer data...');
                 setLoadingProgress(30);
-                console.log(`📊 Starting to preload ${allLayers.length} layers:`, allLayers.map(l => ({id: l.id, name: l.name})));
                 await preloadAllLayerData(allLayers);
 
                 if (mounted) {
@@ -330,15 +342,38 @@ export const useProjectLoader = (
                 setLoadingProgress(10);
                 setLoadingStatus('Loading public project...');
 
-                console.log(`🔓 Loading public project with token: ${token}`);
-                console.log(`📡 Public constructor URL: /api/public/projects/${token}/constructor`);
-                
+
                 const data = await projectService.getPublicProjectConstructor(token);
-                console.log(`✅ Public constructor response received:`, data);
+
                 setLoadingProgress(20);
                 if (!mounted) return;
 
                 setProjectData(data);
+                setLoadingStatus('Loading CBRS data...');
+
+                // Load CBRS licenses for public projects too
+                const stateAbbr = data?.project?.state_abbr;
+
+                if (stateAbbr) {
+                    try {
+                        console.log(`🗂️ Loading CBRS licenses for state: ${stateAbbr}`);
+                        const licenses = await cbrsService.getCBRSLicensesByState(stateAbbr);
+                        console.log(`✅ CBRS licenses loaded: ${licenses.length} total licenses`);
+                        
+                        // Log unique counties with licenses
+                        const uniqueCounties = new Set(licenses.map(l => l.county_fips));
+                        console.log(`📍 Counties with licenses: ${uniqueCounties.size} unique counties`);
+                        console.log(`📋 County FIPS codes:`, Array.from(uniqueCounties));
+                        
+                        setCbrsLicenses(licenses);
+                    } catch (error) {
+                        console.error(`❌ Failed to load CBRS licenses for state ${stateAbbr}:`, error);
+                    }
+                } else {
+                    console.warn(`⚠️ No state_abbr found in public project data. CBRS licenses will not be loaded.`);
+                    console.log(`📝 Available public project fields:`, Object.keys(data?.project || {}));
+                }
+
                 setLoadingStatus('Pre-loading all layer data...');
 
                 const initialVisibleLayers = new Set<number>();
