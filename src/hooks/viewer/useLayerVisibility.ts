@@ -11,6 +11,7 @@ import { getTowerCompanyFromLayerName } from '../../components/viewer/FrontendAn
 import { createCountyLabelsLayer } from '../../utils/viewer/countyLabels';
 import { CBRSLicense } from '../../services/cbrsService';
 import { useLazyLayerLoader } from './useLazyLayerLoader';
+import { ViewportOptimizedLayer, DEFAULT_VIEWPORT_CONFIG } from '../../utils/viewer/viewportOptimization';
 
 export const useLayerVisibility = (
     mapRef: React.MutableRefObject<L.Map | null>,
@@ -168,18 +169,91 @@ export const useLayerVisibility = (
 
                 let mapLayer: L.Layer;
                 const shouldCluster = isPointLayer(layerInfo) && hasClusteringEnabled(layerInfo);
-                if (shouldCluster) {
+                const featureCount = data.features.length;
+                const useViewportOptimization = !shouldCluster && isPointLayer(layerInfo) && featureCount > DEFAULT_VIEWPORT_CONFIG.maxMarkersWithoutOptimization;
+                
+                console.log(`🎯 Layer ${layerInfo.name}: ${featureCount} features, clustering: ${shouldCluster}, viewport optimization: ${useViewportOptimization}`);
+                
+                if (useViewportOptimization) {
+                    // Use viewport-based optimization for large non-clustered point layers
+                    const createMarker = (feature: any, latlng: L.LatLng): L.Marker | L.CircleMarker => {
+                        if (isTowerLayer && feature.properties) {
+                            let companyName: string;
+                            let isSelected = false;
+                            if (layerInfo.id === -1) { 
+                                companyName = 'Selected'; 
+                                isSelected = true; 
+                            } else { 
+                                companyName = getTowerCompanyFromLayerName(layerInfo.name); 
+                            }
+                            const towerIcon = iconPool.getTowerIcon(companyName);
+                            const marker = L.marker(latlng, { icon: towerIcon });
+                            const popupHTML = createTowerPopupHTML(
+                                feature.properties,
+                                companyName,
+                                layerInfo.name,
+                                layerInfo.id,
+                                isSelected
+                            );
+                            (marker as any).bindPopup(popupHTML, { maxWidth: 400, className: 'tower-popup' });
+                            return marker;
+                        } else {
+                            return L.circleMarker(latlng, {
+                                radius: layerInfo.style?.radius || 4,
+                                fillColor: layerInfo.style?.fillColor || '#01fbff',
+                                color: layerInfo.style?.color || '#000000',
+                                weight: layerInfo.style?.weight || 1,
+                                opacity: layerInfo.style?.opacity || 1,
+                                fillOpacity: layerInfo.style?.fillOpacity || 0.8
+                            });
+                        }
+                    };
+                    
+                    const viewportLayer = new ViewportOptimizedLayer(
+                        mapRef.current!,
+                        data.features,
+                        createMarker,
+                        {
+                            maxMarkersWithoutOptimization: 5000,
+                            bufferMultiplier: 1.5,
+                            minZoomForOptimization: 10,
+                            useCanvasForDenseLayers: featureCount > 50000,
+                            canvasThreshold: 50000
+                        }
+                    );
+                    
+                    mapLayer = viewportLayer.getLayerGroup();
+                } else if (shouldCluster) {
                     await import('leaflet.markercluster');
                     const MarkerClusterGroup = (L as any).MarkerClusterGroup;
                     const clusteringOptions = getClusteringOptions(layerInfo);
+                    
+                    // Dynamic clustering settings based on feature count
+                    let dynamicDisableZoom = clusteringOptions.disableClusteringAtZoom || 11;
+                    let dynamicRemoveOutside = clusteringOptions.removeOutsideVisibleBounds || false;
+                    
+                    if (featureCount > 100000) {
+                        // For very large datasets, never fully disable clustering
+                        dynamicDisableZoom = 22; // Keep clustering at all zoom levels
+                        dynamicRemoveOutside = true; // Enable viewport culling
+                        console.log(`🔧 Large dataset detected (${featureCount} features): forcing clustering at all zoom levels`);
+                    } else if (featureCount > 50000) {
+                        // For large datasets, disable clustering later
+                        dynamicDisableZoom = Math.max(dynamicDisableZoom, 15);
+                        dynamicRemoveOutside = true;
+                        console.log(`🔧 Medium dataset detected (${featureCount} features): clustering until zoom ${dynamicDisableZoom}`);
+                    }
+                    
                     const markerClusterGroup = new MarkerClusterGroup({
-                        disableClusteringAtZoom: clusteringOptions.disableClusteringAtZoom || 11,
+                        disableClusteringAtZoom: dynamicDisableZoom,
                         showCoverageOnHover: clusteringOptions.showCoverageOnHover || false,
                         zoomToBoundsOnClick: clusteringOptions.zoomToBoundsOnClick !== false,
                         spiderfyOnMaxZoom: clusteringOptions.spiderfyOnMaxZoom !== false,
-                        removeOutsideVisibleBounds: clusteringOptions.removeOutsideVisibleBounds || false,
+                        removeOutsideVisibleBounds: dynamicRemoveOutside,
                         maxClusterRadius: clusteringOptions.maxClusterRadius || 80,
                         iconCreateFunction: iconPool.getClusterIcon,
+                        chunkedLoading: featureCount > 10000, // Enable chunked loading for large datasets
+                        chunkInterval: 200, // Process markers in chunks
                         ...clusteringOptions
                     });
                     data.features.forEach((feature: any) => {

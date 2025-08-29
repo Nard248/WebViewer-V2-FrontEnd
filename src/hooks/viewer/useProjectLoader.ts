@@ -67,6 +67,11 @@ export const useProjectLoader = (
                     signal: abortController.signal
                 };
                 
+                console.log(`📦 Loading chunk ${chunkId} for layer ${layerId}`);
+                console.log(`📡 Chunk URL: ${url}`);
+                console.log(`📝 Chunk params:`, params);
+                console.log(`🔧 Request options:`, requestOptions);
+                
                 // Use optimized request with priority based on layer visibility and chunk number
                 // First chunks get higher priority (lower number)
                 const chunkPriority = chunkId === 1 ? priority - 2 : priority;
@@ -75,8 +80,12 @@ export const useProjectLoader = (
                 const features = chunkData.features || [];
                 const nextChunk = chunkData.chunk_info?.next_chunk || null;
                 
+                console.log(`✅ Chunk ${chunkId} loaded for layer ${layerId}: ${features.length} features, next chunk: ${nextChunk}`);
+                console.log(`📊 Chunk response:`, { featuresCount: features.length, nextChunk, chunkInfo: chunkData.chunk_info });
+                
                 return { features, nextChunk };
             } catch (error) {
+                console.error(`❌ Error loading chunk ${chunkId} for layer ${layerId}:`, error);
                 // If aborted, rethrow to be caught by the caller
                 if ((error as any)?.name === 'AbortError') {
                     throw error;
@@ -93,80 +102,39 @@ export const useProjectLoader = (
         ): Promise<{layerId: number, data: any}> => {
             const layerId = layerInfo.id;
             
+            console.log(`🔄 Starting to load complete layer: ${layerInfo.name} (ID: ${layerId})`);
+            
             try {
-                // Check cache first
-                const cachedData = layerDataCache.getLayerData(layerId);
-                if (cachedData) {
-                    return { layerId, data: cachedData.data };
-                }
+                // Caching disabled - always fetch fresh data
+                // const cachedData = layerDataCache.getLayerData(layerId);
+                // if (cachedData) {
+                //     return { layerId, data: cachedData.data };
+                // }
                 
                 // Determine priority based on layer visibility
                 const isVisible = layerInfo.is_visible || layerInfo.is_visible_by_default;
                 const layerPriority = isVisible ? 3 : 6; // Lower number = higher priority
                 
-                // First, fetch chunk 1 to determine total chunks
-                const firstChunkResult = await loadLayerChunk(layerId, 1, requestOptions, layerPriority);
-                let allFeatures = [...firstChunkResult.features];
+                // Get chunk IDs from constructor data instead of following nextChunk values
+                const chunkIds = layerInfo.data_source?.chunk_ids || [1];
+                console.log(`📋 Layer ${layerId} has ${chunkIds.length} chunks:`, chunkIds);
                 
-                // If there are more chunks, load them in parallel
-                if (firstChunkResult.nextChunk) {
-                    // Determine how many chunks to load
-                    // We'll use a two-phase approach:
-                    // 1. Load first chunk to discover next chunk
-                    // 2. Fetch a batch of chunks in parallel
-                    // 3. Repeat until all chunks are loaded
+                let allFeatures: any[] = [];
+                
+                // Load all chunks based on the chunk_ids from constructor
+                for (const chunkId of chunkIds) {
+                    if (!mounted) break;
                     
-                    let chunksToLoad = [];
-                    let nextChunkId = firstChunkResult.nextChunk;
-                    
-                    while (nextChunkId > 0 && mounted) {
-                        // Prepare a batch of chunk requests with dynamic batch size
-                        chunksToLoad = [];
-                        // Use adaptive batch sizing based on network conditions
-                        const MAX_PARALLEL_CHUNKS = Math.min(getOptimalBatchSize(), 15);
+                    try {
+                        const chunkResult = await loadLayerChunk(layerId, chunkId, requestOptions, layerPriority);
                         
-                        for (let i = 0; i < MAX_PARALLEL_CHUNKS && nextChunkId > 0; i++) {
-                            chunksToLoad.push(nextChunkId);
-                            nextChunkId++; // Assume sequential chunk IDs
+                        if (chunkResult.features.length > 0) {
+                            allFeatures.push(...chunkResult.features);
                         }
                         
-                        if (chunksToLoad.length === 0) break;
-                        
-                        // Load chunks in parallel with decreasing priority for later chunks
-                        const chunkPromises = chunksToLoad.map((chunkId, index) => {
-                            // Gradually decrease priority for chunks later in the sequence
-                            // This ensures earlier chunks load first if network is constrained
-                            const chunkPriority = layerPriority + Math.min(3, Math.floor(index / 3));
-                            return loadLayerChunk(layerId, chunkId, requestOptions, chunkPriority);
-                        });
-                        
-                        try {
-                            const chunkResults = await Promise.all(chunkPromises);
-                            
-                            // Process results and determine if we need to continue
-                            let shouldContinue = false;
-                            
-                            for (const result of chunkResults) {
-                                if (result.features.length > 0) {
-                                    allFeatures.push(...result.features);
-                                    
-                                    // If any chunk has a next chunk that's beyond our current nextChunkId,
-                                    // update nextChunkId to continue loading
-                                    if (result.nextChunk && result.nextChunk > nextChunkId) {
-                                        nextChunkId = result.nextChunk;
-                                        shouldContinue = true;
-                                    }
-                                }
-                            }
-                            
-                            if (!shouldContinue) {
-                                // If none of the chunks indicated more chunks, we're done
-                                nextChunkId = 0;
-                            }
-                        } catch (error) {
-                            console.error(`Error loading chunk batch for layer ${layerId}:`, error);
-                            nextChunkId = 0; // Stop loading on error
-                        }
+                    } catch (error) {
+                        console.error(`Error loading chunk ${chunkId} for layer ${layerId}:`, error);
+                        // Continue loading other chunks even if one fails
                     }
                 }
                 
@@ -176,15 +144,18 @@ export const useProjectLoader = (
                     features: allFeatures
                 };
                 
-                // Try to cache the data
-                try {
-                    layerDataCache.setLayerData(layerId, layerInfo.name, combinedData);
-                } catch (cacheError) {
-                    // Non-fatal caching error
-                }
+                console.log(`🎉 Layer ${layerId} (${layerInfo.name}) fully loaded: ${allFeatures.length} total features`);
+                
+                // Caching disabled
+                // try {
+                //     layerDataCache.setLayerData(layerId, layerInfo.name, combinedData);
+                // } catch (cacheError) {
+                //     // Non-fatal caching error
+                // }
                 
                 return { layerId, data: combinedData };
             } catch (error) {
+                console.error(`❌ Error loading complete layer ${layerId} (${layerInfo.name}):`, error);
                 // Return empty data on error
                 return { 
                     layerId, 
@@ -223,6 +194,8 @@ export const useProjectLoader = (
                 if (!mounted) break;
                 
                 const batch = allLayers.slice(i, i + BATCH_SIZE);
+                console.log(`📦 Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(allLayers.length/BATCH_SIZE)}: ${batch.length} layers`);
+                console.log(`📝 Batch layers:`, batch.map(l => ({id: l.id, name: l.name, visible: l.is_visible || l.is_visible_by_default})));
                 
                 // Sort the batch by priority - visible layers first
                 const sortedBatch = [...batch].sort((a, b) => {
@@ -234,6 +207,7 @@ export const useProjectLoader = (
                     return 0;
                 });
                 
+                console.log(`🔄 Loading batch with request options:`, requestOptions);
                 const batchPromises = sortedBatch.map(layerInfo => 
                     loadCompleteLayer(layerInfo, requestOptions)
                 );
@@ -275,7 +249,11 @@ export const useProjectLoader = (
 
                 if (!projId) throw new Error('No project ID provided');
 
+                console.log(`🏗️ Loading project constructor for ID: ${projId}`);
+                console.log(`📡 Constructor URL: /api/projects/${projId}/constructor`);
+                
                 const data = await projectService.getProjectConstructor(Number(projId));
+                console.log(`✅ Constructor response received:`, data);
                 setLoadingProgress(15);
                 if (!mounted) return;
 
@@ -285,7 +263,10 @@ export const useProjectLoader = (
                 const stateAbbr = (data as any)?.project?.state_abbr;
                 if (stateAbbr) {
                     try {
+                        console.log(`🗂️ Loading CBRS licenses for state: ${stateAbbr}`);
+                        console.log(`📡 CBRS URL: /api/cbrs/licenses/${stateAbbr}`);
                         const licenses = await cbrsService.getCBRSLicensesByState(stateAbbr);
+                        console.log(`✅ CBRS licenses loaded:`, licenses);
                         setCbrsLicenses(licenses);
                     } catch {}
                 }
@@ -313,6 +294,7 @@ export const useProjectLoader = (
 
                 setLoadingStatus('Pre-loading all layer data...');
                 setLoadingProgress(30);
+                console.log(`📊 Starting to preload ${allLayers.length} layers:`, allLayers.map(l => ({id: l.id, name: l.name})));
                 await preloadAllLayerData(allLayers);
 
                 if (mounted) {
@@ -335,7 +317,11 @@ export const useProjectLoader = (
                 setLoadingProgress(10);
                 setLoadingStatus('Loading public project...');
 
+                console.log(`🔓 Loading public project with token: ${token}`);
+                console.log(`📡 Public constructor URL: /api/public/projects/${token}/constructor`);
+                
                 const data = await projectService.getPublicProjectConstructor(token);
+                console.log(`✅ Public constructor response received:`, data);
                 setLoadingProgress(20);
                 if (!mounted) return;
 
@@ -362,6 +348,7 @@ export const useProjectLoader = (
                 if (defaultBasemap) setActiveBasemap(defaultBasemap.id);
                 else if (data.basemaps?.length > 0) setActiveBasemap(data.basemaps[0].id);
 
+                console.log(`📊 Starting to preload ${allLayers.length} layers for public project:`, allLayers.map(l => ({id: l.id, name: l.name})));
                 await preloadAllLayerData(allLayers);
 
                 if (mounted) {
