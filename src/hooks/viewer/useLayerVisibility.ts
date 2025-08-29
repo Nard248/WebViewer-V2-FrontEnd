@@ -170,7 +170,9 @@ export const useLayerVisibility = (
                 let mapLayer: L.Layer;
                 const shouldCluster = isPointLayer(layerInfo) && hasClusteringEnabled(layerInfo);
                 const featureCount = data.features.length;
-                const useViewportOptimization = !shouldCluster && isPointLayer(layerInfo) && featureCount > DEFAULT_VIEWPORT_CONFIG.maxMarkersWithoutOptimization;
+                // Much lower threshold for antenna towers to improve performance
+                const optimizationThreshold = isTowerLayer ? 100 : DEFAULT_VIEWPORT_CONFIG.maxMarkersWithoutOptimization;
+                const useViewportOptimization = !shouldCluster && isPointLayer(layerInfo) && featureCount > optimizationThreshold;
                 
                 console.log(`🎯 Layer ${layerInfo.name}: ${featureCount} features, clustering: ${shouldCluster}, viewport optimization: ${useViewportOptimization}`);
                 
@@ -214,9 +216,9 @@ export const useLayerVisibility = (
                         data.features,
                         createMarker,
                         {
-                            maxMarkersWithoutOptimization: 5000,
-                            bufferMultiplier: 1.5,
-                            minZoomForOptimization: 10,
+                            maxMarkersWithoutOptimization: isTowerLayer ? 100 : 5000,
+                            bufferMultiplier: isTowerLayer ? 1.3 : 1.5,
+                            minZoomForOptimization: isTowerLayer ? 11 : 10,
                             useCanvasForDenseLayers: featureCount > 50000,
                             canvasThreshold: 50000
                         }
@@ -349,7 +351,8 @@ export const useLayerVisibility = (
                         data,
                         layerInfo.id,
                         layerInfo.name,
-                        companyName
+                        companyName,
+                        mapRef.current! // Pass map reference for viewport optimization
                     );
                 }
 

@@ -3,6 +3,7 @@
 
 import * as L from 'leaflet';
 import { towerCompanyColors } from '../../constants/towerConstants';
+import { ViewportOptimizedBufferLayer } from '../../utils/viewer/viewportOptimizedBuffer';
 
 // Buffer configuration
 interface BufferConfig {
@@ -29,6 +30,7 @@ interface VirtualBufferLayer {
     distance: number;
     color: string;
     layerGroup: L.LayerGroup;
+    optimizedBufferLayer?: ViewportOptimizedBufferLayer;
     isVisible: boolean;
     featureCount: number;
 }
@@ -52,41 +54,82 @@ class FrontendAntennaBufferManager {
         towerData: any,
         parentLayerId: number,
         parentLayerName: string,
-        companyName: string
+        companyName: string,
+        map?: L.Map
     ): VirtualBufferLayer[] {
         const createdBuffers: VirtualBufferLayer[] = [];
 
         defaultBufferConfig.distances.forEach(distance => {
             const bufferId = `buffer_${parentLayerId}_${distance}mi`;
             const bufferColor = this.getCompanyColor(companyName);
-            const bufferGroup = L.layerGroup();
-
             let featureCount = 0;
 
-            if (towerData && towerData.features) {
-                towerData.features.forEach((feature: any) => {
-                    if (feature.geometry?.type === 'Point') {
-                        const [lng, lat] = feature.geometry.coordinates;
+            // Determine if we should use viewport optimization
+            const shouldOptimize = towerData?.features?.length > 100; // Optimize for layers with >100 towers
+            
+            let bufferGroup: L.LayerGroup;
+            let optimizedBufferLayer: ViewportOptimizedBufferLayer | undefined;
 
-                        // Create buffer circle
-                        const circle = L.circle([lat, lng], {
-                            radius: milesToMeters(distance),
-                            color: bufferColor,
-                            fillColor: bufferColor,
-                            weight: distance === 2 ? 2 : 1,
-                            opacity: defaultBufferConfig.opacity,
-                            fillOpacity: distance === 2 ? 0.15 : 0.1,
-                            dashArray: distance === 5 ? '5,5' : undefined,
-                            pane: 'overlayPane'
-                        });
-
-                        // ✅ REMOVED: No popup binding for buffers
-                        // circle.bindPopup(popupContent);
-
-                        bufferGroup.addLayer(circle);
-                        featureCount++;
-                    }
+            if (shouldOptimize && map) {
+                // Use viewport-optimized buffer layer
+                optimizedBufferLayer = new ViewportOptimizedBufferLayer(map, {
+                    maxBuffersWithoutOptimization: 100,
+                    bufferMultiplier: 1.3,
+                    minZoomForOptimization: 11,
+                    updateDebounceMs: 150
                 });
+                
+                if (towerData && towerData.features) {
+                    towerData.features.forEach((feature: any) => {
+                        if (feature.geometry?.type === 'Point') {
+                            const [lng, lat] = feature.geometry.coordinates;
+                            
+                            optimizedBufferLayer.addBuffer(
+                                lat,
+                                lng,
+                                milesToMeters(distance),
+                                {
+                                    color: bufferColor,
+                                    fillColor: bufferColor,
+                                    weight: distance === 2 ? 2 : 1,
+                                    opacity: defaultBufferConfig.opacity,
+                                    fillOpacity: distance === 2 ? 0.15 : 0.1,
+                                    dashArray: distance === 5 ? '5,5' : undefined,
+                                    pane: 'overlayPane'
+                                }
+                            );
+                            featureCount++;
+                        }
+                    });
+                }
+                
+                bufferGroup = optimizedBufferLayer.getLayerGroup();
+            } else {
+                // Use standard layer group for small datasets
+                bufferGroup = L.layerGroup();
+                
+                if (towerData && towerData.features) {
+                    towerData.features.forEach((feature: any) => {
+                        if (feature.geometry?.type === 'Point') {
+                            const [lng, lat] = feature.geometry.coordinates;
+
+                            // Create buffer circle
+                            const circle = L.circle([lat, lng], {
+                                radius: milesToMeters(distance),
+                                color: bufferColor,
+                                fillColor: bufferColor,
+                                weight: distance === 2 ? 2 : 1,
+                                opacity: defaultBufferConfig.opacity,
+                                fillOpacity: distance === 2 ? 0.15 : 0.1,
+                                dashArray: distance === 5 ? '5,5' : undefined,
+                                pane: 'overlayPane'
+                            });
+
+                            bufferGroup.addLayer(circle);
+                            featureCount++;
+                        }
+                    });
+                }
             }
 
             // Create virtual buffer layer
@@ -98,6 +141,7 @@ class FrontendAntennaBufferManager {
                 distance,
                 color: bufferColor,
                 layerGroup: bufferGroup,
+                optimizedBufferLayer,
                 isVisible: false,
                 featureCount
             };
@@ -128,11 +172,19 @@ class FrontendAntennaBufferManager {
                 // Add to map if parent is visible and buffer is enabled
                 if (!map.hasLayer(buffer.layerGroup)) {
                     map.addLayer(buffer.layerGroup);
+                    // Attach viewport optimization if available
+                    if (buffer.optimizedBufferLayer) {
+                        buffer.optimizedBufferLayer.attachToMap();
+                    }
                 }
             } else {
                 // Remove from map if parent is hidden or buffer is disabled
                 if (map.hasLayer(buffer.layerGroup)) {
                     map.removeLayer(buffer.layerGroup);
+                    // Detach viewport optimization if available
+                    if (buffer.optimizedBufferLayer) {
+                        buffer.optimizedBufferLayer.detachFromMap();
+                    }
                 }
             }
         });
@@ -148,6 +200,10 @@ class FrontendAntennaBufferManager {
         buffers.forEach(buffer => {
             if (map.hasLayer(buffer.layerGroup)) {
                 map.removeLayer(buffer.layerGroup);
+                // Detach viewport optimization if available
+                if (buffer.optimizedBufferLayer) {
+                    buffer.optimizedBufferLayer.detachFromMap();
+                }
             }
             // ✅ CRITICAL: Set buffer visibility to false when parent tower is hidden by zoom
             buffer.isVisible = false;
@@ -168,10 +224,18 @@ class FrontendAntennaBufferManager {
         if (isVisible && parentVisible) {
             if (!map.hasLayer(buffer.layerGroup)) {
                 map.addLayer(buffer.layerGroup);
+                // Attach viewport optimization if available
+                if (buffer.optimizedBufferLayer) {
+                    buffer.optimizedBufferLayer.attachToMap();
+                }
             }
         } else {
             if (map.hasLayer(buffer.layerGroup)) {
                 map.removeLayer(buffer.layerGroup);
+                // Detach viewport optimization if available
+                if (buffer.optimizedBufferLayer) {
+                    buffer.optimizedBufferLayer.detachFromMap();
+                }
             }
         }
 
@@ -219,6 +283,10 @@ class FrontendAntennaBufferManager {
             if (map.hasLayer(buffer.layerGroup)) {
                 map.removeLayer(buffer.layerGroup);
             }
+            // Clean up viewport optimization if available
+            if (buffer.optimizedBufferLayer) {
+                buffer.optimizedBufferLayer.destroy();
+            }
             this.bufferLayers.delete(buffer.id);
         });
 
@@ -260,6 +328,10 @@ class FrontendAntennaBufferManager {
         this.bufferLayers.forEach(buffer => {
             if (map.hasLayer(buffer.layerGroup)) {
                 map.removeLayer(buffer.layerGroup);
+            }
+            // Clean up viewport optimization if available
+            if (buffer.optimizedBufferLayer) {
+                buffer.optimizedBufferLayer.destroy();
             }
         });
         this.bufferLayers.clear();
