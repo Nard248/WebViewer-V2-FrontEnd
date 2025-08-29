@@ -25,10 +25,11 @@ export const useMapInit = (
         }
 
         try {
+            console.log(projectData)
             const map = L.map(mapContainerRef.current, {
                 center: [
-                    projectData.project?.default_center_lat || 40.0,
-                    projectData.project?.default_center_lng || -83.0
+                    projectData.project?.default_center.lat || 40.0,
+                    projectData.project?.default_center.lng || -83.0
                 ],
                 zoom: projectData.project?.default_zoom_level || 7,
                 zoomControl: false,
