@@ -57,12 +57,11 @@ class FrontendAntennaBufferManager {
         companyName: string,
         map?: L.Map
     ): VirtualBufferLayer[] {
-        // ✅ CRITICAL FIX: Clean up existing buffers before creating new ones
-        if (this.towerBufferRelationships.has(parentLayerId) && map) {
-            console.log(`Cleaning up existing buffers for tower layer ${parentLayerId} before regenerating`);
+        // First remove any existing buffers for this layer to prevent duplicates
+        if (map) {
             this.removeBuffersForTower(parentLayerId, map);
         }
-
+        
         const createdBuffers: VirtualBufferLayer[] = [];
 
         defaultBufferConfig.distances.forEach(distance => {
@@ -90,20 +89,23 @@ class FrontendAntennaBufferManager {
                         if (feature.geometry?.type === 'Point') {
                             const [lng, lat] = feature.geometry.coordinates;
                             
-                            optimizedBufferLayer.addBuffer(
-                                lat,
-                                lng,
-                                milesToMeters(distance),
-                                {
-                                    color: bufferColor,
-                                    fillColor: bufferColor,
-                                    weight: distance === 2 ? 2 : 1,
-                                    opacity: defaultBufferConfig.opacity,
-                                    fillOpacity: distance === 2 ? 0.15 : 0.1,
-                                    dashArray: distance === 5 ? '5,5' : undefined,
-                                    pane: 'overlayPane'
-                                }
-                            );
+                            if (optimizedBufferLayer) {
+                                optimizedBufferLayer.addBuffer(
+                                    lat,
+                                    lng,
+                                    milesToMeters(distance),
+                                    {
+                                        color: bufferColor,
+                                        fillColor: bufferColor,
+                                        weight: distance === 2 ? 2 : 1,
+                                        opacity: defaultBufferConfig.opacity,
+                                        fillOpacity: distance === 2 ? 0.15 : 0.1,
+                                        dashArray: distance === 5 ? '5,5' : undefined,
+                                        pane: 'overlayPane',
+                                        radius: milesToMeters(distance) // Add required radius property
+                                    }
+                                );
+                            }
                             featureCount++;
                         }
                     });
@@ -248,10 +250,8 @@ class FrontendAntennaBufferManager {
         this.notifyVisibilityChange();
     }
 
-    // ✅ NEW: Check if tower is currently visible (for zoom logic)
-    isTowerLayerVisible(parentLayerId: number, map: L.Map): boolean {
+    isTowerLayerVisible(): boolean {
         // This will be called by the zoom manager to check parent visibility
-        // You can add additional logic here if needed
         return true; // Default - let zoom manager handle the logic
     }
 
@@ -402,4 +402,5 @@ export const createInitialBufferVisibility = (towerBuffers: TowerWithBuffers[]):
     return state;
 };
 
-export { FrontendAntennaBufferManager, VirtualBufferLayer, TowerWithBuffers };
+export { FrontendAntennaBufferManager };
+export type { VirtualBufferLayer, TowerWithBuffers };

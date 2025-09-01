@@ -251,9 +251,15 @@ const StandaloneViewerPage: React.FC = () => {
                         position: 'absolute', 
                         top: 0, 
                         left: 0, 
-                        backgroundColor: 'white', 
+                        backgroundColor: '#FFFFFF', 
                         '& .leaflet-container': {
-                            backgroundColor: '#ffffff !important'
+                            backgroundColor: '#FFFFFF !important'
+                        },
+                        '& .leaflet-tile-pane': {
+                            backgroundColor: '#FFFFFF !important'
+                        },
+                        '& .leaflet-tile': {
+                            backgroundColor: '#FFFFFF !important'
                         }
                     }}
                 />

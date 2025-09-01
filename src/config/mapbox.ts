@@ -212,9 +212,6 @@ export const AVAILABLE_BASEMAPS = [
     },
 ];
 
-// src/config/endpoints.ts
-import { API_VERSION } from './constants';
-
 /**
  * API endpoints for the application
  */

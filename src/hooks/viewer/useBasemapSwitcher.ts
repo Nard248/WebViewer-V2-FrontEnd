@@ -24,6 +24,16 @@ export const useBasemapSwitcher = (
             let tileLayer: L.TileLayer;
             if (basemap.id === 1) {
                 tileLayer = createWhiteTileLayer();
+                
+                if (mapRef.current.getContainer()) {
+                    mapRef.current.getContainer().style.backgroundColor = '#FFFFFF';
+                }
+                
+                // Also set the base pane to white
+                const mapPane = mapRef.current.getPane('tilePane');
+                if (mapPane) {
+                    mapPane.style.backgroundColor = '#FFFFFF';
+                }
             } else {
                 tileLayer = L.tileLayer(basemap.url_template, {
                     ...basemap.options,

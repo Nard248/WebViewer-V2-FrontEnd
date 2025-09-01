@@ -60,6 +60,10 @@ export const useSelectedTowers = (
                     return updated;
                 });
 
+                if (mapRef.current) {
+                    frontendBufferManager.removeBuffersForTower(-1, mapRef.current);
+                }
+
                 return newSet;
             }
         });
@@ -69,6 +73,31 @@ export const useSelectedTowers = (
         if (isVisible) {
             setVisibleLayers(prev => new Set([...prev, -1]));
             selectedTowersManager.toggleSelectedLayerVisibility(true);
+            
+            // Important: When re-enabling selected towers layer, we need to 
+            // respect the buffer visibility state from the UI
+            // This ensures buffers don't appear when their checkboxes are unchecked
+            if (mapRef.current) {
+                // Get the current buffer visibility state
+                setBufferVisibility(prev => {
+                    const bufferState = { ...prev };
+                    
+                    // Apply the current buffer visibility state
+                    Object.entries(bufferState).forEach(([bufferId, isVisible]) => {
+                        if (bufferId.startsWith('buffer_-1_')) {
+                            // Apply the buffer visibility based on the checkbox state
+                            frontendBufferManager.toggleBufferLayer(
+                                bufferId, 
+                                isVisible, 
+                                mapRef.current!, 
+                                true
+                            );
+                        }
+                    });
+                    
+                    return bufferState;
+                });
+            }
         } else {
             setVisibleLayers(prev => {
                 const newSet = new Set(prev);
@@ -91,7 +120,7 @@ export const useSelectedTowers = (
                 return updated;
             });
         }
-    }, []);
+    }, [mapRef]);
 
     return {
         handleSelectedTowersToggle
