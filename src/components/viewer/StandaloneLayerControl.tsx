@@ -152,7 +152,7 @@ const ExportButton = styled(Button)({
 });
 
 const LayerGroupContainer = styled(Box)({
-    marginBottom: '8px',
+    marginBottom: '2px',
 });
 
 const LayerGroupHeader = styled(Box)({
@@ -160,8 +160,7 @@ const LayerGroupHeader = styled(Box)({
     alignItems: 'center',
     justifyContent: 'space-between',
     cursor: 'pointer',
-    padding: '4px 0',
-    fontSize: '13px',
+    fontSize: '10.83px',
     fontWeight: 600,
     color: '#333',
     '&:hover': {
@@ -171,13 +170,13 @@ const LayerGroupHeader = styled(Box)({
 
 const LayerGroupContent = styled(Box)({
     paddingLeft: '16px',
+    fontSize: '10.83px',
 });
 
 const LayerItem = styled(Box)({
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    marginBottom: '2px',
 });
 
 const BufferLayerItem = styled(Box)({

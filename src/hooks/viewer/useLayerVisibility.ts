@@ -474,5 +474,3 @@ export const useLayerVisibility = (
         getLoadingLayers
     };
 };
-
-
