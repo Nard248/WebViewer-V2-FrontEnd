@@ -44,6 +44,7 @@ class ZoomVisibilityManager {
     private layerTogglingCallbacks: Set<(layerId: number, visible: boolean, reason: 'zoom' | 'user') => void> = new Set();
     private zoomHintCallbacks: Set<(hints: ZoomHint[]) => void> = new Set();
     private bufferManager: any = null;
+    private bufferVisibilityUpdateCallback: ((bufferIds: string[], visible: boolean) => void) | null = null;
 
     // Initialize with map and buffer manager
     initialize(map: L.Map, bufferManager?: any): void {
@@ -54,6 +55,10 @@ class ZoomVisibilityManager {
         map.on('zoomend', this.handleZoomChange.bind(this));
 
         console.log(`Zoom visibility manager initialized. Tower min zoom: ${this.config.minZoomForTowers}`);
+    }
+
+    setBufferVisibilityUpdateCallback(callback: (bufferIds: string[], visible: boolean) => void): void {
+        this.bufferVisibilityUpdateCallback = callback;
     }
 
     // Register a layer for zoom-based visibility
@@ -324,4 +329,5 @@ export const createZoomHintMessage = (hints: ZoomHint[]): string => {
     return `Zoom to level ${minZoom}+ to see: ${layerNames}`;
 };
 
-export { ZoomVisibilityManager, ZoomHint };
+export { ZoomVisibilityManager };
+export type { ZoomHint };

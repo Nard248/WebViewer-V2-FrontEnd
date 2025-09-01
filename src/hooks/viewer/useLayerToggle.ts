@@ -38,6 +38,7 @@ export const useLayerToggle = (
                         // Immediately hide selected towers layer and its buffers
                         selectedTowersManager.toggleSelectedLayerVisibility(false);
                         if (mapRef.current) {
+                            frontendBufferManager.forceHideBuffersForTower(-1, mapRef.current);
                             frontendBufferManager.removeBuffersForTower(-1, mapRef.current);
                         }
                         setBufferVisibility(prev => {
