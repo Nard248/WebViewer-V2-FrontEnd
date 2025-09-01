@@ -222,6 +222,8 @@ export const useLayerVisibility = (
 
                 const isTowerLayerHere = isAntennaTowerLayer(layerInfo.name) || layerInfo.id === -1;
                 const isCountyLayer = layerInfo.name === 'County Outline' || layerInfo.id === 794;
+                const isStateOutlineLayer = layerInfo.name === 'State Outline';
+                const isOutlineLayer = isCountyLayer || isStateOutlineLayer;
                 const isPointLayerType = layerInfo.layer_type_name === 'Point Layer';
 
                 // Track feature count for Locations and Antenna layers (fallback to counting loaded features)
@@ -378,7 +380,7 @@ export const useLayerVisibility = (
                             opacity: layerInfo.style?.opacity || 1,
                             fillColor: layerInfo.style?.fillColor || layerInfo.style?.color || '#3388ff',
                             // Remove fill for county/state outline layers
-                            fillOpacity: isCountyLayer ? 0 : (layerInfo.style?.fillOpacity || 0.2)
+                            fillOpacity: isOutlineLayer ? 0 : (layerInfo.style?.fillOpacity || 0.2)
                         }),
                         pointToLayer: (feature, latlng) => {
                             if (isTowerLayerHere) {
