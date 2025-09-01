@@ -69,6 +69,14 @@ export class ViewportOptimizedBufferLayer {
                 ...buffer.options,
                 radius: buffer.radius
             });
+            const pathEl = (circle as any)._path as SVGPathElement | undefined;
+            if (pathEl) {
+                pathEl.classList.add('wv-buffer-circle');
+                const cls = (buffer.options as any)?.className as string | undefined;
+                if (cls) {
+                    cls.split(/\s+/).forEach(c => { if (c) pathEl.classList.add(c); });
+                }
+            }
             this.visibleBuffers.set(buffer.id, circle);
             this.layerGroup.addLayer(circle);
         }
@@ -123,9 +131,7 @@ export class ViewportOptimizedBufferLayer {
         // Find buffers that intersect with viewport
         const visibleBufferFeatures = this.allBuffers.filter(buffer => {
             // Check if buffer circle intersects with viewport
-            const bufferBounds = L.latLngBounds(
-                L.latLng(buffer.lat, buffer.lng).toBounds(buffer.radius * 2)
-            );
+            const bufferBounds = L.latLng(buffer.lat, buffer.lng).toBounds(buffer.radius * 2);
             return expandedBounds.intersects(bufferBounds);
         });
 
@@ -210,6 +216,11 @@ export class ViewportOptimizedBufferLayer {
                 this.updateTimeout = null;
             }
         }
+    }
+
+    public hideFromMap(): void {
+        this.visibleBuffers.clear();
+        this.layerGroup.clearLayers();
     }
 
     public getLayerGroup(): L.LayerGroup {

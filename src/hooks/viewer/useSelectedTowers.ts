@@ -12,6 +12,9 @@ export const useSelectedTowers = (
     projectData: any | null,
     mapRef: React.MutableRefObject<L.Map | null>
 ) => {
+    // Track previous selection count to detect unselect actions
+    const prevCountRef = (typeof window !== 'undefined' ? (window as any) : {}) as { _viewerPrevSelectedCount?: number };
+
     // Update layer visibility when selected towers change
     useEffect(() => {
         setVisibleLayers(prev => {
@@ -67,6 +70,21 @@ export const useSelectedTowers = (
                 return newSet;
             }
         });
+
+        const prevCount = prevCountRef._viewerPrevSelectedCount ?? 0;
+        if (selectedTowers.length > 0 && selectedTowers.length < prevCount) {
+            setBufferVisibility(prev => ({
+                ...prev,
+                ['buffer_-1_2mi']: false,
+                ['buffer_-1_5mi']: false
+            }));
+
+            if (mapRef.current) {
+                frontendBufferManager.forceHideBuffersForTower(-1, mapRef.current);
+            }
+        }
+
+        prevCountRef._viewerPrevSelectedCount = selectedTowers.length;
     }, [selectedTowers]);
 
     const handleSelectedTowersToggle = useCallback((isVisible: boolean) => {

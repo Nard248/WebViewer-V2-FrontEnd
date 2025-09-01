@@ -32,6 +32,7 @@ interface StandaloneLayerControlProps {
     onSelectedTowersToggle?: (isVisible: boolean) => void;
     // Feature counts for layers
     layerFeatureCounts?: { [layerId: number]: number };
+    onClearCoverage?: (layerId: number) => void;
 }
 
 
@@ -271,7 +272,8 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                                                            currentZoom = 7,
                                                                            selectedTowersLayer,
                                                                            onSelectedTowersToggle,
-                                                                           layerFeatureCounts = {}}) => {
+                                                                           layerFeatureCounts = {},
+                                                                           onClearCoverage}) => {
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);

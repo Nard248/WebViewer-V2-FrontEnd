@@ -10,9 +10,10 @@ import StandaloneLoadingScreen from '../../components/viewer/StandaloneLoadingSc
 import StandaloneHeader from '../../components/viewer/StandaloneHeader';
 import {
     TowerWithBuffers,
-    BufferVisibilityState
+    BufferVisibilityState,
+    frontendBufferManager
 } from '../../components/viewer/FrontendAntennaBufferSystem';
-import { ZoomHint } from '../../components/viewer/ZoomVisibilityManager';
+import { ZoomHint, zoomVisibilityManager } from '../../components/viewer/ZoomVisibilityManager';
 import '../../styles/standalone-viewer.css';
 import { selectedTowersManager, SelectedTower } from '../../components/viewer/SelectedTowersManager';
 import { useAuth } from '../../context/AuthContext';
@@ -113,9 +114,19 @@ const StandaloneViewerPage: React.FC = () => {
         return '';
     }, [projectData]);
 
+    const handleBufferVisibilityUpdate = useCallback((bufferIds: string[], visible: boolean) => {
+        setBufferVisibility(prev => {
+            const newState = { ...prev };
+            bufferIds.forEach(bufferId => {
+                newState[bufferId] = visible;
+            });
+            return newState;
+        });
+    }, []);
+
     // Use custom hooks for various functionality
     useBodyClass('standalone-viewer-active');
-    
+
     useBufferManager(
         (towers: TowerWithBuffers[]) => setTowerBufferRelationships(towers),
         (towers: TowerWithBuffers[]) => {
@@ -132,7 +143,7 @@ const StandaloneViewerPage: React.FC = () => {
             });
         }
     );
-    
+
     useZoomVisibility(
         (layerId: number, visible: boolean, reason: 'zoom' | 'user') => {
             if (reason !== 'zoom') return;
@@ -145,7 +156,8 @@ const StandaloneViewerPage: React.FC = () => {
                 }
             }
         },
-        (hints: ZoomHint[]) => setZoomHints(hints)
+        (hints: ZoomHint[]) => setZoomHints(hints),
+        handleBufferVisibilityUpdate
     );
 
     // Initialize map
@@ -170,7 +182,7 @@ const StandaloneViewerPage: React.FC = () => {
         setVisibleLayers,
         setLayerFeatureCounts
     );
-    
+
     // Handle selected towers
     const { handleSelectedTowersToggle } = useSelectedTowers(
         selectedTowers,
@@ -186,7 +198,8 @@ const StandaloneViewerPage: React.FC = () => {
     const { handleBufferToggle } = useBufferToggle(
         mapRef,
         visibleLayers,
-        setBufferVisibility
+        setBufferVisibility,
+        zoomVisibilityManager
     );
     
     // Handle layer toggling
@@ -287,6 +300,19 @@ const StandaloneViewerPage: React.FC = () => {
                         selectedTowersLayer={selectedTowers.length > 0 ? selectedTowersManager.getSelectedTowersVirtualLayer() : null}
                         onSelectedTowersToggle={handleSelectedTowersToggle}
                         layerFeatureCounts={layerFeatureCounts}
+                        onClearCoverage={(layerId: number) => {
+                            if (!mapRef.current) return;
+                            // Force hide buffers for this layer and update state
+                            frontendBufferManager.forceHideBuffersForTower(layerId, mapRef.current);
+                            setBufferVisibility(prev => {
+                                const next = { ...prev } as any;
+                                const rel = towerBufferRelationships.find(r => r.towerId === layerId);
+                                if (rel) {
+                                    rel.buffers.forEach(b => { next[b.id] = false; });
+                                }
+                                return next;
+                            });
+                        }}
                     />
                 )}
             </Box>

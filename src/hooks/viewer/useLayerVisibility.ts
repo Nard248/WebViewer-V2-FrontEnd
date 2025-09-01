@@ -144,7 +144,7 @@ export const useLayerVisibility = (
                     const isCurrentlyVisible = mapRef.current!.hasLayer(layer);
                     if (shouldBeVisible && !isCurrentlyVisible) {
                         mapRef.current!.addLayer(layer);
-                        frontendBufferManager.toggleParentLayerBuffers(layerId, true, mapRef.current!);
+                        frontendBufferManager.toggleParentLayerBuffers(layerId, true, mapRef.current!, zoomVisibilityManager);
                     } else if (!shouldBeVisible && isCurrentlyVisible) {
                         mapRef.current!.removeLayer(layer);
                         // Force hide buffers to ensure they are completely removed from the map
@@ -152,7 +152,7 @@ export const useLayerVisibility = (
                             // For selected towers, force cleanup all buffers
                             frontendBufferManager.forceHideBuffersForTower(layerId, mapRef.current!);
                         } else {
-                            frontendBufferManager.toggleParentLayerBuffers(layerId, false, mapRef.current!);
+                            frontendBufferManager.toggleParentLayerBuffers(layerId, false, mapRef.current!, zoomVisibilityManager);
                         }
                     }
                 } else {

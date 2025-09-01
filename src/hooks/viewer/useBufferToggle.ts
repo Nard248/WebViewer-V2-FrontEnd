@@ -4,7 +4,8 @@ import { frontendBufferManager, BufferVisibilityState } from '../../components/v
 export const useBufferToggle = (
     mapRef: React.MutableRefObject<L.Map | null>,
     visibleLayers: Set<number>,
-    setBufferVisibility: React.Dispatch<React.SetStateAction<BufferVisibilityState>>
+    setBufferVisibility: React.Dispatch<React.SetStateAction<BufferVisibilityState>>,
+    zoomVisibilityManager?: any
 ) => {
     const handleBufferToggle = useCallback((bufferId: string, isVisible: boolean) => {
         setBufferVisibility(prev => ({
@@ -13,30 +14,20 @@ export const useBufferToggle = (
         }));
 
         if (mapRef.current) {
-            // Check if parent tower is visible
             const buffer = frontendBufferManager.getBufferLayer(bufferId);
-            
-            if (buffer) {
-                const parentVisible = visibleLayers.has(buffer.parentLayerId);
-                
-                // First, ensure the buffer is removed from the map if it should be hidden
-                if (!isVisible || !parentVisible) {
-                    if (mapRef.current.hasLayer(buffer.layerGroup)) {
-                        mapRef.current.removeLayer(buffer.layerGroup);
-                        if (buffer.optimizedBufferLayer) {
-                            buffer.optimizedBufferLayer.detachFromMap();
-                        }
-                    }
-                }
-                
-                // Then update the buffer visibility state
-                frontendBufferManager.toggleBufferLayer(bufferId, isVisible, mapRef.current, parentVisible);
+            const parentVisible = buffer ? visibleLayers.has(buffer.parentLayerId) : false;
+
+            let finalParentVisible = parentVisible;
+            if (zoomVisibilityManager && buffer) {
+                const zoomStatus = zoomVisibilityManager.getLayerZoomStatus(buffer.parentLayerId);
+                finalParentVisible = parentVisible && zoomStatus.canShow;
             }
+
+            frontendBufferManager.toggleBufferLayer(bufferId, isVisible, mapRef.current, finalParentVisible, zoomVisibilityManager);
         }
-    }, [visibleLayers]);
+    }, [visibleLayers, zoomVisibilityManager]);
 
     return {
         handleBufferToggle
     };
 };
-

@@ -57,11 +57,12 @@ class FrontendAntennaBufferManager {
         companyName: string,
         map?: L.Map
     ): VirtualBufferLayer[] {
-        // First remove any existing buffers for this layer to prevent duplicates
-        if (map) {
+        // ✅ CRITICAL FIX: Clean up existing buffers before creating new ones
+        if (this.towerBufferRelationships.has(parentLayerId) && map) {
+            console.log(`Cleaning up existing buffers for tower layer ${parentLayerId} before regenerating`);
             this.removeBuffersForTower(parentLayerId, map);
         }
-        
+
         const createdBuffers: VirtualBufferLayer[] = [];
 
         defaultBufferConfig.distances.forEach(distance => {
@@ -88,7 +89,7 @@ class FrontendAntennaBufferManager {
                     towerData.features.forEach((feature: any) => {
                         if (feature.geometry?.type === 'Point') {
                             const [lng, lat] = feature.geometry.coordinates;
-                            
+
                             if (optimizedBufferLayer) {
                                 optimizedBufferLayer.addBuffer(
                                     lat,
@@ -102,8 +103,8 @@ class FrontendAntennaBufferManager {
                                         fillOpacity: distance === 2 ? 0.15 : 0.1,
                                         dashArray: distance === 5 ? '5,5' : undefined,
                                         pane: 'overlayPane',
-                                        radius: milesToMeters(distance) // Add required radius property
-                                    }
+                                        className: `wv-buffer-circle wv-buffer-distance-${distance} wv-parent-${parentLayerId}`
+                                    } as L.CircleOptions
                                 );
                             }
                             featureCount++;
@@ -111,7 +112,7 @@ class FrontendAntennaBufferManager {
                     });
                 }
                 
-                bufferGroup = optimizedBufferLayer.getLayerGroup();
+                bufferGroup = optimizedBufferLayer!.getLayerGroup();
             } else {
                 // Use standard layer group for small datasets
                 bufferGroup = L.layerGroup();
@@ -130,7 +131,8 @@ class FrontendAntennaBufferManager {
                                 opacity: defaultBufferConfig.opacity,
                                 fillOpacity: distance === 2 ? 0.15 : 0.1,
                                 dashArray: distance === 5 ? '5,5' : undefined,
-                                pane: 'overlayPane'
+                                pane: 'overlayPane',
+                                className: `wv-buffer-circle wv-buffer-distance-${distance} wv-parent-${parentLayerId}`
                             });
 
                             bufferGroup.addLayer(circle);
@@ -171,12 +173,19 @@ class FrontendAntennaBufferManager {
     }
 
     // ✅ FIXED: Toggle all buffers for a parent tower layer with zoom-aware logic
-    toggleParentLayerBuffers(parentLayerId: number, isVisible: boolean, map: L.Map): void {
+    toggleParentLayerBuffers(parentLayerId: number, isVisible: boolean, map: L.Map, zoomManager?: any): void {
         const buffers = this.towerBufferRelationships.get(parentLayerId);
         if (!buffers) return;
 
+        let finalParentVisible = isVisible;
+        if (zoomManager && parentLayerId !== -1) {
+            const zoomStatus = zoomManager.getLayerZoomStatus(parentLayerId);
+            finalParentVisible = isVisible && zoomStatus.canShow;
+            console.log(`🔄 toggleParentLayerBuffers: layer ${parentLayerId}, userVisible=${isVisible}, zoomVisible=${zoomStatus.canShow}, final=${finalParentVisible}`);
+        }
+
         buffers.forEach(buffer => {
-            if (isVisible && buffer.isVisible) {
+            if (finalParentVisible && buffer.isVisible) {
                 // Add to map if parent is visible and buffer is enabled
                 if (!map.hasLayer(buffer.layerGroup)) {
                     map.addLayer(buffer.layerGroup);
@@ -187,12 +196,12 @@ class FrontendAntennaBufferManager {
                 }
             } else {
                 // Remove from map if parent is hidden or buffer is disabled
+                if (buffer.optimizedBufferLayer) {
+                    buffer.optimizedBufferLayer.hideFromMap();
+                    buffer.optimizedBufferLayer.detachFromMap();
+                }
                 if (map.hasLayer(buffer.layerGroup)) {
                     map.removeLayer(buffer.layerGroup);
-                    // Detach viewport optimization if available
-                    if (buffer.optimizedBufferLayer) {
-                        buffer.optimizedBufferLayer.detachFromMap();
-                    }
                 }
             }
         });
@@ -203,55 +212,76 @@ class FrontendAntennaBufferManager {
     // ✅ NEW: Force hide all buffers for a tower (when zooming out)
     forceHideBuffersForTower(parentLayerId: number, map: L.Map): void {
         const buffers = this.towerBufferRelationships.get(parentLayerId);
-        if (!buffers) return;
+        if (!buffers) {
+            return;
+        }
 
         buffers.forEach(buffer => {
+            if (buffer.optimizedBufferLayer) {
+                buffer.optimizedBufferLayer.hideFromMap();
+                buffer.optimizedBufferLayer.detachFromMap();
+            }
             if (map.hasLayer(buffer.layerGroup)) {
                 map.removeLayer(buffer.layerGroup);
-                // Detach viewport optimization if available
-                if (buffer.optimizedBufferLayer) {
-                    buffer.optimizedBufferLayer.detachFromMap();
-                }
             }
             // ✅ CRITICAL: Set buffer visibility to false when parent tower is hidden by zoom
             buffer.isVisible = false;
         });
 
         this.notifyVisibilityChange();
-        console.log(`Force hidden all buffers for tower layer ${parentLayerId} due to zoom out`);
+        try {
+            const toRemove = document.querySelectorAll(`.wv-buffer-circle.wv-parent-${parentLayerId}`);
+            toRemove.forEach(el => el.parentElement?.removeChild(el));
+        } catch (_) {
+        }
     }
 
     // ✅ ENHANCED: Toggle individual buffer layer with parent visibility check
-    toggleBufferLayer(bufferId: string, isVisible: boolean, map: L.Map, parentVisible: boolean = true): void {
+    toggleBufferLayer(bufferId: string, isVisible: boolean, map: L.Map, parentVisible: boolean = true, zoomManager?: any): void {
         const buffer = this.bufferLayers.get(bufferId);
         if (!buffer) return;
 
         buffer.isVisible = isVisible;
 
-        // Only show if parent is also visible AND user wants buffer visible
-        if (isVisible && parentVisible) {
+        let finalParentVisible = parentVisible;
+        if (zoomManager && buffer.parentLayerId !== -1) {
+            const zoomStatus = zoomManager.getLayerZoomStatus(buffer.parentLayerId);
+            finalParentVisible = parentVisible && zoomStatus.canShow;
+        }
+
+        if (isVisible && finalParentVisible) {
             if (!map.hasLayer(buffer.layerGroup)) {
                 map.addLayer(buffer.layerGroup);
-                // Attach viewport optimization if available
-                if (buffer.optimizedBufferLayer) {
-                    buffer.optimizedBufferLayer.attachToMap();
-                }
+            }
+            if (buffer.optimizedBufferLayer) {
+                buffer.optimizedBufferLayer.attachToMap();
             }
         } else {
+            if (buffer.optimizedBufferLayer) {
+                buffer.optimizedBufferLayer.hideFromMap();
+                buffer.optimizedBufferLayer.detachFromMap();
+            }
             if (map.hasLayer(buffer.layerGroup)) {
                 map.removeLayer(buffer.layerGroup);
-                // Detach viewport optimization if available
-                if (buffer.optimizedBufferLayer) {
-                    buffer.optimizedBufferLayer.detachFromMap();
+            }
+
+            try {
+                const distanceClass = buffer.distance === 2 ? 'wv-buffer-distance-2' : buffer.distance === 5 ? 'wv-buffer-distance-5' : '';
+                if (distanceClass) {
+                    const toRemove = document.querySelectorAll(`.wv-buffer-circle.${distanceClass}.wv-parent-${buffer.parentLayerId}`);
+                    toRemove.forEach(el => el.parentElement?.removeChild(el));
                 }
+            } catch (_) {
             }
         }
 
         this.notifyVisibilityChange();
     }
 
+    // ✅ NEW: Check if tower is currently visible (for zoom logic)
     isTowerLayerVisible(): boolean {
         // This will be called by the zoom manager to check parent visibility
+        // You can add additional logic here if needed
         return true; // Default - let zoom manager handle the logic
     }
 
@@ -298,6 +328,12 @@ class FrontendAntennaBufferManager {
 
         this.towerBufferRelationships.delete(parentLayerId);
         this.notifyVisibilityChange();
+
+        try {
+            const toRemove = document.querySelectorAll(`.wv-buffer-circle.wv-parent-${parentLayerId}`);
+            toRemove.forEach(el => el.parentElement?.removeChild(el));
+        } catch (_) {
+        }
     }
 
     // Check if layer has buffers
