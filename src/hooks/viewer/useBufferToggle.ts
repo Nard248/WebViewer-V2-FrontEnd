@@ -15,9 +15,23 @@ export const useBufferToggle = (
         if (mapRef.current) {
             // Check if parent tower is visible
             const buffer = frontendBufferManager.getBufferLayer(bufferId);
-            const parentVisible = buffer ? visibleLayers.has(buffer.parentLayerId) : false;
-
-            frontendBufferManager.toggleBufferLayer(bufferId, isVisible, mapRef.current, parentVisible);
+            
+            if (buffer) {
+                const parentVisible = visibleLayers.has(buffer.parentLayerId);
+                
+                // First, ensure the buffer is removed from the map if it should be hidden
+                if (!isVisible || !parentVisible) {
+                    if (mapRef.current.hasLayer(buffer.layerGroup)) {
+                        mapRef.current.removeLayer(buffer.layerGroup);
+                        if (buffer.optimizedBufferLayer) {
+                            buffer.optimizedBufferLayer.detachFromMap();
+                        }
+                    }
+                }
+                
+                // Then update the buffer visibility state
+                frontendBufferManager.toggleBufferLayer(bufferId, isVisible, mapRef.current, parentVisible);
+            }
         }
     }, [visibleLayers]);
 
@@ -25,3 +39,4 @@ export const useBufferToggle = (
         handleBufferToggle
     };
 };
+
