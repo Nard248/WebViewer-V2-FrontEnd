@@ -639,13 +639,13 @@ const StandaloneLayerControl: React.FC<StandaloneLayerControlProps> = ({
                                                         {/* Buffer layers for antenna towers */}
                                                         {isTowerLayer && towerRelationship && layerVisible && !hiddenByZoom && (
                                                             <Box sx={{ marginTop: '4px', marginBottom: '8px' }}>
-                                                                {onClearCoverage && (
-                                                                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
-                                                                        <Button size="small" onClick={() => onClearCoverage(layer.id)} sx={{ textTransform: 'none' }}>
-                                                                            Clear coverage
-                                                                        </Button>
-                                                                    </Box>
-                                                                )}
+                                                                {/*{onClearCoverage && (*/}
+                                                                {/*    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>*/}
+                                                                {/*        <Button size="small" onClick={() => onClearCoverage(layer.id)} sx={{ textTransform: 'none' }}>*/}
+                                                                {/*            Clear coverage*/}
+                                                                {/*        </Button>*/}
+                                                                {/*    </Box>*/}
+                                                                {/*)}*/}
                                                                 {towerRelationship.buffers.map((buffer: VirtualBufferLayer) => {
                                                                     const bufferVisible = bufferVisibility[buffer.id] || false;
 

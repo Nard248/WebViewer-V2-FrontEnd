@@ -69,6 +69,21 @@ import BasemapsPage from './pages/components/BasemapsPage';
 import BasemapCreatePage from './pages/components/BasemapCreatePage';
 import BasemapEditPage from './pages/components/BasemapEditPage';
 
+// Admin Pages
+import LayerTypesPage from './pages/admin/layer-types/LayerTypesPage';
+import LayerTypeCreatePage from './pages/admin/layer-types/LayerTypeCreatePage';
+import LayerTypeEditPage from './pages/admin/layer-types/LayerTypeEditPage';
+import LayerPermissionsPage from './pages/admin/permissions/LayerPermissionsPage';
+import ClientProjectsPage from './pages/admin/associations/ClientProjectsPage';
+import ColorPalettesPage from './pages/admin/color-palettes/ColorPalettesPage';
+import ColorPaletteEditor from './pages/admin/color-palettes/ColorPaletteEditor';
+import MapToolsPage from './pages/admin/map-tools/MapToolsPage';
+import MapToolCreatePage from './pages/admin/map-tools/MapToolCreatePage';
+import ProjectLayerFunctionsPage from './pages/admin/layer-functions/ProjectLayerFunctionsPage';
+import CBRSLicensesPage from './pages/admin/cbrs/CBRSLicensesPage';
+import AuditLogsPage from './pages/admin/audit/AuditLogsPage';
+import FCCLocationsPage from './pages/admin/fcc/FCCLocationsPage';
+
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
@@ -153,6 +168,22 @@ function App() {
                             <Route path="components/basemaps" element={<BasemapsPage />} />
                             <Route path="components/basemaps/create" element={<BasemapCreatePage />} />
                             <Route path="components/basemaps/:id/edit" element={<BasemapEditPage />} />
+
+                            {/* Admin Routes - Admin Only */}
+                            <Route path="admin/layer-types" element={<ProtectedRoute component={LayerTypesPage} adminOnly={true} />} />
+                            <Route path="admin/layer-types/create" element={<ProtectedRoute component={LayerTypeCreatePage} adminOnly={true} />} />
+                            <Route path="admin/layer-types/:id/edit" element={<ProtectedRoute component={LayerTypeEditPage} adminOnly={true} />} />
+                            <Route path="admin/permissions" element={<ProtectedRoute component={LayerPermissionsPage} adminOnly={true} />} />
+                            <Route path="admin/client-projects" element={<ProtectedRoute component={ClientProjectsPage} adminOnly={true} />} />
+                            <Route path="admin/color-palettes" element={<ProtectedRoute component={ColorPalettesPage} adminOnly={true} />} />
+                            <Route path="admin/color-palettes/create" element={<ProtectedRoute component={ColorPaletteEditor} adminOnly={true} />} />
+                            <Route path="admin/color-palettes/:id/edit" element={<ProtectedRoute component={ColorPaletteEditor} adminOnly={true} />} />
+                            <Route path="admin/map-tools" element={<ProtectedRoute component={MapToolsPage} adminOnly={true} />} />
+                            <Route path="admin/map-tools/create" element={<ProtectedRoute component={MapToolCreatePage} adminOnly={true} />} />
+                            <Route path="admin/layer-functions" element={<ProtectedRoute component={ProjectLayerFunctionsPage} adminOnly={true} />} />
+                            <Route path="admin/cbrs-licenses" element={<ProtectedRoute component={CBRSLicensesPage} adminOnly={true} />} />
+                            <Route path="admin/audit-logs" element={<ProtectedRoute component={AuditLogsPage} adminOnly={true} />} />
+                            <Route path="admin/fcc-locations" element={<ProtectedRoute component={FCCLocationsPage} adminOnly={true} />} />
 
                             <Route path="debug/api-inspector" element={<ApiInspectorPage />} />
 

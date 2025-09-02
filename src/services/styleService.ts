@@ -101,6 +101,13 @@ export const createColorPalette = (palette: ColorPaletteCreate): Promise<ColorPa
 };
 
 /**
+ * Update a color palette
+ */
+export const updateColorPalette = (id: number, palette: Partial<ColorPaletteCreate>): Promise<ColorPalette> => {
+    return apiPut<ColorPalette>(`/color-palettes/${id}/`, palette);
+};
+
+/**
  * Delete a color palette
  */
 export const deleteColorPalette = (id: number): Promise<void> => {

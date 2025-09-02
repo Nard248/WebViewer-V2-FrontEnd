@@ -26,6 +26,16 @@ import {
     Storage as StorageIcon,
     ColorLens as ColorLensIcon,
     Equalizer as EqualizerIcon,
+    AdminPanelSettings as AdminIcon,
+    Security as SecurityIcon,
+    Link as LinkIcon,
+    Category as CategoryIcon,
+    Palette as PaletteIcon,
+    Build as BuildIcon,
+    Functions as FunctionsIcon,
+    Radio as CBRSIcon,
+    History as AuditIcon,
+    LocationOn as FCCIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -164,6 +174,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, drawerWidth }) 
             path: '/clients',
             icon: <PeopleIcon />,
             adminOnly: true
+        },
+        {
+            title: 'Admin',
+            path: '/admin',
+            icon: <AdminIcon />,
+            adminOnly: true,
+            children: [
+                { title: 'Layer Types', path: '/admin/layer-types', icon: <CategoryIcon /> },
+                { title: 'Permissions', path: '/admin/permissions', icon: <SecurityIcon /> },
+                { title: 'Client Projects', path: '/admin/client-projects', icon: <LinkIcon /> },
+                { title: 'Color Palettes', path: '/admin/color-palettes', icon: <PaletteIcon /> },
+                { title: 'Map Tools', path: '/admin/map-tools', icon: <BuildIcon /> },
+                { title: 'Layer Functions', path: '/admin/layer-functions', icon: <FunctionsIcon /> },
+                { title: 'CBRS Licenses', path: '/admin/cbrs-licenses', icon: <CBRSIcon /> },
+                { title: 'Audit Logs', path: '/admin/audit-logs', icon: <AuditIcon /> },
+                { title: 'FCC Locations', path: '/admin/fcc-locations', icon: <FCCIcon /> },
+            ]
         },
         {
             title: 'Settings',

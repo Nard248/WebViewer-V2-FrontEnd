@@ -1,5 +1,6 @@
 // src/services/cbrsService.ts
-import { apiGet } from './api';
+import { apiGet, apiPost, apiPut, apiDelete, createQueryParams } from './api';
+import { PaginatedResponse } from '../types/common.types';
 
 export interface CBRSLicense {
     id: number;
@@ -27,6 +28,54 @@ export interface CBRSStateResponse {
     total_licenses: number;
     counties: CBRSCountyData[];
 }
+
+export interface CBRSLicenseCreate {
+    county_fips: string;
+    county_name: string;
+    state_abbr: string;
+    channel: string;
+    bidder: string;
+    license_date?: string;
+    frequency_mhz?: number;
+}
+
+export interface CBRSLicenseUpdate {
+    county_fips?: string;
+    county_name?: string;
+    state_abbr?: string;
+    channel?: string;
+    bidder?: string;
+    license_date?: string;
+    frequency_mhz?: number;
+}
+
+// Full CRUD operations for CBRS Licenses
+export const getCBRSLicenses = (
+    params: Record<string, unknown> = {}
+): Promise<PaginatedResponse<CBRSLicense>> => {
+    const queryParams = createQueryParams(params);
+    return apiGet<PaginatedResponse<CBRSLicense>>(`/cbrs-licenses/?${queryParams.toString()}`);
+};
+
+export const getCBRSLicense = (id: number): Promise<CBRSLicense> => {
+    return apiGet<CBRSLicense>(`/cbrs-licenses/${id}/`);
+};
+
+export const createCBRSLicense = (license: CBRSLicenseCreate): Promise<CBRSLicense> => {
+    return apiPost<CBRSLicense>('/cbrs-licenses/', license);
+};
+
+export const updateCBRSLicense = (id: number, license: CBRSLicenseUpdate): Promise<CBRSLicense> => {
+    return apiPut<CBRSLicense>(`/cbrs-licenses/${id}/`, license);
+};
+
+export const deleteCBRSLicense = (id: number): Promise<void> => {
+    return apiDelete<void>(`/cbrs-licenses/${id}/`);
+};
+
+export const bulkCreateCBRSLicenses = (licenses: CBRSLicenseCreate[]): Promise<{ created: CBRSLicense[]; errors: any[] }> => {
+    return apiPost<{ created: CBRSLicense[]; errors: any[] }>('/cbrs-licenses/bulk-create/', { licenses });
+};
 
 export const cbrsService = {
     getCBRSLicensesByState: async (stateAbbr: string): Promise<CBRSLicense[]> => {
