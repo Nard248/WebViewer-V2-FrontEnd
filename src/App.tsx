@@ -83,6 +83,7 @@ import ProjectLayerFunctionsPage from './pages/admin/layer-functions/ProjectLaye
 import CBRSLicensesPage from './pages/admin/cbrs/CBRSLicensesPage';
 import AuditLogsPage from './pages/admin/audit/AuditLogsPage';
 import FCCLocationsPage from './pages/admin/fcc/FCCLocationsPage';
+import ProjectViewerPage from './pages/admin/project-viewer/ProjectViewerPage';
 
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
@@ -170,6 +171,7 @@ function App() {
                             <Route path="components/basemaps/:id/edit" element={<BasemapEditPage />} />
 
                             {/* Admin Routes - Admin Only */}
+                            <Route path="admin/project-viewer" element={<ProtectedRoute component={ProjectViewerPage} adminOnly={true} />} />
                             <Route path="admin/layer-types" element={<ProtectedRoute component={LayerTypesPage} adminOnly={true} />} />
                             <Route path="admin/layer-types/create" element={<ProtectedRoute component={LayerTypeCreatePage} adminOnly={true} />} />
                             <Route path="admin/layer-types/:id/edit" element={<ProtectedRoute component={LayerTypeEditPage} adminOnly={true} />} />

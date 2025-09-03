@@ -36,6 +36,7 @@ import {
     Radio as CBRSIcon,
     History as AuditIcon,
     LocationOn as FCCIcon,
+    ViewList as ViewListIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -130,7 +131,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, drawerWidth }) 
         {
             title: 'Dashboard',
             path: '/dashboard',
-            icon: <DashboardIcon />
+            icon: <DashboardIcon />,
+            children: [
+                { title: 'Overview', path: '/dashboard', icon: <DashboardIcon /> },
+                { title: 'Project Viewer', path: '/admin/project-viewer', icon: <ViewListIcon />, adminOnly: true },
+            ]
         },
         {
             title: 'Projects',
@@ -245,6 +250,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, drawerWidth }) 
                         <Collapse in={open && isExpanded} timeout="auto" unmountOnExit>
                             <List component="div" disablePadding>
                                 {item.children!.map((child) => {
+                                    // Skip admin-only child items for non-admin users
+                                    if (child.adminOnly && !isAdmin) {
+                                        return null;
+                                    }
+                                    
                                     const isChildSelected = location.pathname === child.path;
 
                                     return (

@@ -25,7 +25,9 @@ export const MainLayout: React.FC = () => {
     // Update title based on current route
     useEffect(() => {
         const path = location.pathname;
-        if (path.includes('dashboard')) {
+        if (path.includes('project-viewer')) {
+            setTitle('Project Viewer');
+        } else if (path.includes('dashboard')) {
             setTitle('Dashboard');
         } else if (path.includes('projects')) {
             setTitle('Projects');
