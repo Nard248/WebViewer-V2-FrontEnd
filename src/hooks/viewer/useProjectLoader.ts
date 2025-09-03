@@ -120,37 +120,52 @@ export const useProjectLoader = (
                 console.log(`📋 Layer ${layerId} has ${chunkIds.length} chunks:`, chunkIds);
                 
                 let allFeatures: any[] = [];
-                
-                // Load all chunks based on the chunk_ids from constructor
-                for (const chunkId of chunkIds) {
-                    if (!mounted) break;
-                    
-                    try {
-                        const chunkResult = await loadLayerChunk(layerId, chunkId, requestOptions, layerPriority);
-                        
-                        if (chunkResult.features.length > 0) {
-                            allFeatures.push(...chunkResult.features);
-                        }
-                        
-                        // Update chunk progress
-                        if (mounted) {
-                            completedChunksRef.current++;
-                            const progressPercent = 30 + (completedChunksRef.current / totalChunksRef.current * 65);
-                            setLoadingProgress(Math.min(95, progressPercent));
-                            setLoadingStatus(`Loaded ${completedChunksRef.current}/${totalChunksRef.current} chunks...`);
-                        }
-                        
-                    } catch (error) {
-                        console.error(`Error loading chunk ${chunkId} for layer ${layerId}:`, error);
-                        // Update progress even for failed chunks to avoid getting stuck
-                        if (mounted) {
-                            completedChunksRef.current++;
-                            const progressPercent = 30 + (completedChunksRef.current / totalChunksRef.current * 65);
-                            setLoadingProgress(Math.min(95, progressPercent));
-                            setLoadingStatus(`Loaded ${completedChunksRef.current}/${totalChunksRef.current} chunks...`);
-                        }
-                        // Continue loading other chunks even if one fails
-                    }
+
+                // Load all chunks based on the chunk_ids from constructor using a bounded parallel pool
+                const POOL_SIZE = Math.min(getOptimalBatchSize(), 15);
+                const queue = [...chunkIds];
+                let inFlight: Promise<void>[] = [];
+
+                const runNext = (): void => {
+                    if (!mounted) return;
+                    const nextChunkId = queue.shift();
+                    if (nextChunkId === undefined) return;
+
+                    const p = loadLayerChunk(layerId, nextChunkId, requestOptions, layerPriority)
+                        .then(chunkResult => {
+                            if (chunkResult.features.length > 0) {
+                                allFeatures.push(...chunkResult.features);
+                            }
+                        })
+                        .catch(error => {
+                            console.error(`Error loading chunk ${nextChunkId} for layer ${layerId}:`, error);
+                        })
+                        .finally(() => {
+                            // Update chunk progress regardless of success/failure
+                            if (mounted) {
+                                completedChunksRef.current++;
+                                const progressPercent = 30 + (completedChunksRef.current / totalChunksRef.current * 65);
+                                setLoadingProgress(Math.min(95, progressPercent));
+                                setLoadingStatus(`Loaded ${completedChunksRef.current}/${totalChunksRef.current} chunks...`);
+                            }
+                            inFlight = inFlight.filter(x => x !== p);
+                            // Schedule next item to keep the pool full
+                            if (queue.length > 0) {
+                                runNext();
+                            }
+                        });
+
+                    inFlight.push(p);
+                };
+
+                // Prime the pool
+                for (let i = 0; i < POOL_SIZE && queue.length > 0; i++) {
+                    runNext();
+                }
+
+                // Wait for all in-flight tasks to complete
+                while (inFlight.length > 0) {
+                    await Promise.race(inFlight);
                 }
                 
                 // Create combined data object
