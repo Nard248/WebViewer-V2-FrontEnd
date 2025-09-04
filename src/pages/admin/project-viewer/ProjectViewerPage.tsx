@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box,
-    Container,
     Typography,
     Grid,
     Paper,
@@ -12,14 +11,9 @@ import {
     Button,
     TextField,
     FormControl,
-    InputLabel,
     Select,
     MenuItem,
     Chip,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     IconButton,
     Pagination,
     Tooltip,
@@ -56,8 +50,6 @@ const ProjectViewerPage: React.FC = () => {
     const navigate = useNavigate();
     const [projects, setProjects] = useState<AdminProjectCard[]>([]);
     const [loading, setLoading] = useState(true);
-    const [configDialogOpen, setConfigDialogOpen] = useState(false);
-    const [selectedProject, setSelectedProject] = useState<AdminProjectCard | null>(null);
     const [pagination, setPagination] = useState({
         total_count: 0,
         page: 1,
@@ -71,7 +63,6 @@ const ProjectViewerPage: React.FC = () => {
     const [filters, setFilters] = useState<AdminProjectFilters>({
         ordering: '-updated_at'
     });
-    const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [publicFilter, setPublicFilter] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
@@ -96,13 +87,7 @@ const ProjectViewerPage: React.FC = () => {
 
 
     const handleConfigure = (project: AdminProjectCard) => {
-        setSelectedProject(project);
-        setConfigDialogOpen(true);
-    };
-
-    const handleCloseConfigDialog = () => {
-        setConfigDialogOpen(false);
-        setSelectedProject(null);
+        navigate(`/admin/project-viewer/${project.id}`);
     };
 
     const handleFilterChange = (newFilters: Partial<AdminProjectFilters>) => {
@@ -1055,28 +1040,6 @@ const ProjectViewerPage: React.FC = () => {
                 </Box>
             )}
 
-            {/* Configure Dialog (placeholder for future implementation) */}
-            <Dialog 
-                open={configDialogOpen} 
-                onClose={handleCloseConfigDialog}
-                maxWidth="md"
-                fullWidth
-            >
-                <DialogTitle>
-                    Configure Project
-                    {selectedProject && ` - ${selectedProject.title}`}
-                </DialogTitle>
-                <DialogContent>
-                    <Box sx={{ pt: 2 }}>
-                        <Typography color="text.secondary">
-                            Project configuration will be implemented here.
-                        </Typography>
-                    </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseConfigDialog}>Close</Button>
-                </DialogActions>
-            </Dialog>
         </Box>
     );
 };
